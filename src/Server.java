@@ -31,7 +31,7 @@ public class Server implements Runnable{
         }        
     }
 
-    public static void listen_tcp(int port) throws IOException{
+    public static void listen_tcp(int port) throws IOException {
         ServerSocket server_socket = new ServerSocket(port);
 
         try{
@@ -46,18 +46,17 @@ public class Server implements Runnable{
         finally{
             server_socket.close();
         }
-
     }
+
     public static void main(String[] args) throws IOException {
         
-        if(args.length >= 1){
-            int port = Integer.parseInt(args[0]); //pode ser hard coded?
+        //if(args.length >= 1){
+            int port = 8080;// Integer.parseInt(args[0]); //pode ser hard coded?
 
             Thread udp_listener = new Thread(new Server(port));
             udp_listener.start();
 
             Server.listen_tcp(port);
-        }
-       
+        //}
     }
 }

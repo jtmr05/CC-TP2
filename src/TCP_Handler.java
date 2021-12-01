@@ -1,6 +1,6 @@
-import java.io.DataInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.Socket;
+import java.util.Date;
 
 public class TCP_Handler implements Runnable {
 
@@ -13,9 +13,25 @@ public class TCP_Handler implements Runnable {
     @Override
     public void run() {
         try{
-            DataInputStream in = new DataInputStream(this.socket.getInputStream());
-            //fazer cenas aqui ig
+            BufferedReader in = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
+            PrintWriter out = new PrintWriter(new OutputStreamWriter(this.socket.getOutputStream()));
 
+            
+            String body = "<html><title>just a string</title></html>"; 
+            StringBuilder header = new StringBuilder(); 
+            header.append("HTTP/1.1 200 OK\n").
+                   append("Server: localhost\n").
+                   append("Date: ").append(new Date()).append("\n").
+                   append("Content-type: text/html\n").
+                   append("Content-length: ").append(body.length()).append("\n").
+                   append("Connection: closed\n\n\n");
+            
+            String s;
+            while((s = in.readLine()) != null && !s.isEmpty()){
+                System.out.println(s);
+            }
+            out.write(header.append(body).toString());
+            out.flush();
         }
         catch(IOException e){
             e.printStackTrace();
