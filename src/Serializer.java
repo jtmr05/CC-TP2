@@ -8,6 +8,6 @@ public class Serializer {
 
         
 
-        return new byte[Packet.MAX_SIZE];
+        return new byte[Constants.MAX_CHUNK_SIZE];
     }
 }
