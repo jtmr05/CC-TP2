@@ -7,7 +7,7 @@ public class Packet {
     private byte[] metaDados;
     private long lastUpdated;
     private boolean hasNext;
-    private int sequenceNumber;
+    private short sequenceNumber;
     private String filename;
     private byte[] data;
     
@@ -22,7 +22,7 @@ public class Packet {
         this.hasNext = hasNext;
     }
 
-    public Packet(byte opcode, int sequenceNumber, String filename, byte[] data){
+    public Packet(byte opcode, short sequenceNumber, String filename, byte[] data){
         this.opcode = opcode;
         this.sequenceNumber = sequenceNumber;
         this.filename = filename;
@@ -30,7 +30,7 @@ public class Packet {
     }
 
 
-    public Packet(byte opcode, int sequenceNumber){
+    public Packet(byte opcode, short sequenceNumber){
         this.opcode = opcode;
         this.sequenceNumber = sequenceNumber;
     }
@@ -44,30 +44,28 @@ public class Packet {
         int pos = 1;
 
         switch (data[0]) {
-            case Constants.NEW_CONNECTION ->
-                p = new Packet(Constants.NEW_CONNECTION);
+            case Consts.NEW_CONNECTION ->
+                p = new Packet(Consts.NEW_CONNECTION);
                 
-            case Constants.FILE_META ->
-
-                byte[] metaDados = new byte[Constants.METADATA_SIZE];
+            case Consts.FILE_META -> {    
+                byte[] metaDados = new byte[Consts.METADATA_SIZE];
                 System.arraycopy(data, pos, metaDados, 0, metaDados.length);
                 pos += metaDados.length;
 
-                byte[] lastUpdated = new byte[Constants.LAST_UP_SIZE];
+                byte[] lastUpdated = new byte[Consts.LAST_UP_SIZE];
                 System.arraycopy(data, pos, lastUpdated, 0, lastUpdated.length);
                 pos += lastUpdated.length;
 
-                byte hasNext = data[pos];
-                p = new Packet(Constants.FILE_META, metaDados, 
-                               bytesToLong(lastUpdated), bytesToBoolean(hasNext));
+                boolean hasNext = data[pos]==0 ? false : true;
+                p = new Packet(Consts.FILE_META, metaDados, bytesToLong(lastUpdated), hasNext);
+            }
             
-            case Constants.DATA_TRANSFER ->
-
-                byte[] seqNum = new byte[Constants.SEQ_NUM_SIZE];
+            case Consts.DATA_TRANSFER -> {
+                byte[] seqNum = new byte[Consts.SEQ_NUM_SIZE];
                 System.arraycopy(data, pos, seqNum, 0, seqNum.length);
                 pos += seqNum.length;
 
-                byte[] strSize = new byte[Constants.STR_SIZE_SIZE];
+                byte[] strSize = new byte[Consts.STR_SIZE_SIZE];
                 System.arraycopy(data, pos, strSize, 0, strSize.length);
                 pos += strSize.length;
 
@@ -78,16 +76,16 @@ public class Packet {
                 byte[] data__ = new byte[data.length - pos];
                 System.arraycopy(data, pos, data__, 0, data__.length);
 
-                p = new Packet(Constants.DATA_TRANSFER, bytesToShort(seqNum),
-                               new String(filename), data__);
-
-            case ACK ->
+                p = new Packet(Consts.DATA_TRANSFER, bytesToShort(seqNum), new String(filename), data__);
+            } 
                 
-                byte[] seqNum = new byte[Constants.SEQ_NUM_SIZE];
+            case Consts.ACK -> {
+                byte[] seqNum = new byte[Consts.SEQ_NUM_SIZE];
                 System.arraycopy(data, pos, seqNum, 0, seqNum.length);
                 
-                p = new Packet(Constants.ACK, bytesToShort(seqNum));
-
+                p = new Packet(Consts.ACK, bytesToShort(seqNum));
+            }
+            
             default ->
                 p = null;
         }
@@ -95,6 +93,13 @@ public class Packet {
         return p;
     }
 
+
+    private static short bytesToShort(byte[] bytes) {
+        ByteBuffer buffer = ByteBuffer.allocate(Short.BYTES);
+        buffer.put(bytes);
+        buffer.flip();
+        return buffer.getShort();        
+    }
 
     private static long bytesToLong(byte[] bytes){
         ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
@@ -110,90 +115,91 @@ public class Packet {
         return buffer.getInt();
     }
 
-    private static boolean bytesToBoolean(byte[] bytes){
-        ByteBuffer buffer = ByteBuffer.allocate(Boolean.BYTES);
-        buffer.put(bytes);
-        buffer.flip();
-        return buffer.getBoolean();
-    }
-
-
-
 
 
     public DatagramPacket serialize(){
         
-        byte[] data = new byte[MAX_PACKET_SIZE];
-        DatagramPacket dp = new DatagramPacket(data, MAX_PACKET_SIZE);
+        byte[] data = new byte[Consts.MAX_PACKET_SIZE];
+        data[0] = this.opcode;
+        int pos=1;
+        
 
         switch (this.opcode) {
-            case 1:
+            case Consts.NEW_CONNECTION:
+                //data[0] = this.opcode;             
+                break;
+
+            case Consts.FILE_META:
+                
+          
+
+                System.arraycopy(this.metaDados, 0, data, pos, this.metaDados.length);
+                pos+=this.metaDados.length;
+
+                byte[] longBytes = longToBytes(this.lastUpdated);
+                System.arraycopy(longBytes, 0, data, pos, longBytes.length);
+                pos+=longBytes.length;
+
+                data[pos]=(byte) (this.hasNext?0:1);
                 
                 break;
-        
+            
+            case Consts.DATA_TRANSFER:
+
+                // data[0]= this.opcode;
+                byte[] shortBytes = shortToBytes(this.sequenceNumber);
+                System.arraycopy(shortBytes, 0, data, pos, shortBytes.length);
+                pos+=shortBytes.length;
+
+                byte[] intBytes = intToBytes(this.filename.length());
+                System.arraycopy(intBytes, 0, data, pos, intBytes.length);
+                pos+=intBytes.length;
+
+                byte[] filename = this.filename.getBytes();
+                System.arraycopy(filename, 0, data, pos, filename.length);
+                pos+=filename.length;
+                
+                System.arraycopy(this.data, 0, data, pos, this.data.length);
+
+                break;
+
+            case Consts.ACK:
+
+                byte[] shortBytes1 = shortToBytes(this.sequenceNumber);
+                System.arraycopy(shortBytes1, 0, data, pos, shortBytes1.length);
+                pos+=shortBytes1.length;
+
+                break;
+
             default:
                 break;
         }
 
-
+        DatagramPacket dp = new DatagramPacket(data, Consts.MAX_PACKET_SIZE);
 
         return dp;
 
     }
+
+
+
+    public byte[] longToBytes(long x) {
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        buffer.putLong(x);
+        return buffer.array();
+    }
+
+    public byte[] shortToBytes(short x) {
+        ByteBuffer buffer = ByteBuffer.allocate(Short.BYTES);
+        buffer.putShort(x);
+        return buffer.array();
+    }
+
+    public byte[] intToBytes(int x) {
+        ByteBuffer buffer = ByteBuffer.allocate(Integer.BYTES);
+        buffer.putInt(x);
+        return buffer.array();
+    }
+
+
 }
-/**
- * Tipo de Packets do protocolo
-
-|  OPCODE  |     Operação                               
-|         1         |    NEW_CONNECTION      
-|         2         |    FILE_META    
-|         3         |    DATA_TRANSFER                    
-|         4         |    ACK                                      
-                
-NEW_CONNECTION
-
-  1 byte                 
-  ----------------
- | Opcode     |     
- -----------------
-
-FILE_META
-
-   1 byte             16 bytes               8 bytes          1 byte
-  --------------------------------------------------------------------------------
- | Opcode |  md5Hash MetaDados | LastUpdated   | hasNext  | ----------------------------------------------------------------------------------
-md5Hash MetaDados: Vamos atribuir 16 bytes visto ser o espaço ocupado pelo md5.
-
-
-DATA_TRANSFER  
-
-  1 byte            2 bytes            4 bytes       StringSize bytes       n bytes        
-  ----------------------------------------------------------------------------------------------------
- | Opcode |  Sequence Number | StringSize    |     Filename         |    Data      |
- -----------------------------------------------------------------------------------------------------
-
-String: Vamos atribuir 4 bytes para o tamanho da String (espaço que ocupa um inteiro)
-
-
-ACK 
-
-  1 byte            2 bytes  
-  ----------------------------------------------
- | Opcode |     Sequence Number    |
- -----------------------------------------------
-O Ack é um acknowledgment dos pacotes de DATA, sendo feito de pacote a pacote.
-
-
-Protocolo de conexão inicial para ler um ficheiro
-Host A envia um NEW_CONNECTION ao Host B.
-Host B envia um FILE_META para o Host A com os metaDados (filename e data de criação) relevantes em md5.
-
-
-
-O tamanho do Packet foi decidido pelo grupo de trabalho como 1472 bytes, no máximo.
-Como o header do UDP tem um overhead de 8 bytes e o header IP tem um overhead de 20 bytes, a soma destes valores com o tamanho do Packet corresponde a 1500 bytes, que será o maior tamanho da mensagem do nosso protocolo.
-
-
-
-
- */
