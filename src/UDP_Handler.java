@@ -5,6 +5,7 @@ import java.net.DatagramPacket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
 import java.util.Objects;
 
 public class UDP_Handler implements Runnable { 
@@ -37,6 +38,7 @@ public class UDP_Handler implements Runnable {
         File file = new File(this.path);
         BasicFileAttributes meta = Files.readAttributes(file.toPath(), BasicFileAttributes.class);
         int code = Objects.hash(meta.lastModifiedTime(), meta.size(), meta.creationTime());
+        meta.lastModifiedTime().toMillis();
         
         return code;
     }

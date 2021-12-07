@@ -17,7 +17,7 @@ public class UDP_Listener implements Runnable {
 
     @Override
     public void run(){
-        byte[] buffer = new byte[Constants.MAX_CHUNK_SIZE];
+        byte[] buffer = new byte[Constants.MAX_PACKET_SIZE];
         DatagramPacket in_packet = new DatagramPacket(buffer, buffer.length);
         
         try{
