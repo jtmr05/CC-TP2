@@ -1,21 +1,24 @@
+package udp;
+
 import java.net.*;
+import java.io.*;
 
 import packet.Consts;
-
-import java.io.*;
 
 public class UDP_Listener implements Runnable {
     
     private final DatagramSocket data_socket;
     private final int port;
     private final InetAddress address;
-    private final String path;
-
-    public UDP_Listener(int port, String path, InetAddress address) throws SocketException {
+    private final File dir;
+    private final MapWrapper mapWrapper;
+   
+    public UDP_Listener(int port, File dir, InetAddress address) throws SocketException {
         this.port = port;
         this.address = address;
-        this.path = path;
+        this.dir = dir;
         this.data_socket = new DatagramSocket(this.port);
+        this.mapWrapper = new MapWrapper(dir);
     }
 
     @Override
@@ -30,7 +33,7 @@ public class UDP_Listener implements Runnable {
             while(true){
                 this.data_socket.receive(in_packet);
                 //aaa
-                Thread t = new Thread(new UDP_Handler(in_packet, this.path, address, port));
+                Thread t = new Thread(new UDP_Handler(in_packet, this.dir, address, port, this.mapWrapper));
                 t.start();
             } 
         }

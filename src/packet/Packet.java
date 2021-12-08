@@ -13,15 +13,15 @@ public class Packet {
     
     /** The operation code as defined in {@linkplain Consts} */
     private byte opcode;
-    /** md5 hash produced from the file's metadata (CreationName and Filename) */
+    /** md5 hash produced from the file's metadata (CreationDate and Filename) */
     private String md5hash;
     /** */
     private long lastUpdated;
     /** */
     private long creationDate;
-    /** */
-    private boolean hasNext;
     /** This attribute tells us if this is the last file*/
+    private boolean hasNext;
+    /** */
     private short sequenceNumber;
     /** */
     private String filename;
