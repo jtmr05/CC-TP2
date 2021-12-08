@@ -71,9 +71,6 @@ public class Packet {
         Utils u = new Utils();
 
         switch (data[0]){
-
-            case NEW_CONNECTION ->
-                p = new Packet(NEW_CONNECTION);
                 
             case FILE_META -> {    
                 byte[] metaDados = new byte[METADATA_SIZE];
@@ -143,7 +140,6 @@ public class Packet {
 
         switch(this.opcode){
 
-            case NEW_CONNECTION -> {}
 
             case FILE_META -> {
                 byte[] strToBytes = this.metaDados.getBytes(UTF_8);
