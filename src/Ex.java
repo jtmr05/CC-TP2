@@ -7,16 +7,7 @@ import java.security.NoSuchAlgorithmException;
 public class Ex {
     
     public static void main(String[] args) throws NoSuchAlgorithmException {
-        MessageDigest md = MessageDigest.getInstance("md5");
-
-        byte[] hash = md.digest("pila".getBytes(StandardCharsets.UTF_8));
-
-        BigInteger number = new BigInteger(1, hash); 
-        StringBuilder hexString = new StringBuilder(number.toString(16)); 
-        while (hexString.length() < 32){ 
-            hexString.insert(0, '0'); 
-        } 
+        
   
-        System.out.println(hexString.toString()); 
     }
 }

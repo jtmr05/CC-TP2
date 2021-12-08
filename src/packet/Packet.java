@@ -3,6 +3,7 @@ package packet;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 
+
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import static packet.Consts.*;
@@ -12,37 +13,36 @@ public class Packet {
     
     /** The operation code as defined in {@linkplain Consts} */
     private byte opcode;
-
-    /** md5 hash produced from the file's metadata */
-    private String metaDados;
-    
+    /** md5 hash produced from the file's metadata (CreationName and Filename) */
+    private String md5hash;
+    /** */
     private long lastUpdated;
-    
+    /** */
+    private long creationDate;
+    /** */
     private boolean hasNext;
-    
+    /** This attribute tells us if this is the last file*/
     private short sequenceNumber;
-    
+    /** */
     private String filename;
-    
+    /** The raw data being sent/received*/
     private byte[] data;
-    
 
 
-    public Packet(byte opcode){
+       
+    public Packet(byte opcode, String md5hash, long lastUpdated, long creationDate, String filename, boolean hasNext){
         this.opcode = opcode;
-    }
-            
-    public Packet(byte opcode, String metaDados, long lastUpdated, boolean hasNext){
-        this.opcode = opcode;
-        this.metaDados = metaDados;
+        this.md5hash = md5hash;
         this.lastUpdated = lastUpdated;
         this.hasNext = hasNext;
+        this.creationDate = creationDate;
+        this.filename = filename;
     }
 
-    public Packet(byte opcode, short sequenceNumber, String filename, byte[] data){
+    public Packet(byte opcode, short sequenceNumber, String md5hash, byte[] data){
         this.opcode = opcode;
         this.sequenceNumber = sequenceNumber;
-        this.filename = filename;
+        this.md5hash = md5hash;
         this.data = data;
     }
 
@@ -51,6 +51,29 @@ public class Packet {
         this.sequenceNumber = sequenceNumber;
     }
 
+    public byte getOpcode(){
+        return this.opcode;
+    } 
+
+    public long getLastUpdated(){
+        return this.lastUpdated;
+    }   
+    
+    public long getCreationDate(){
+        return this.creationDate;
+    }
+
+    public short getSeqNum(){
+        return this.sequenceNumber;
+    }
+
+    public String getFilename(){
+        return this.filename;
+    }
+
+    public String getMD5Hash(){
+        return this.md5hash;
+    }
 
     /**
      * Returns a new packet from the given {@code dp}.
@@ -72,37 +95,51 @@ public class Packet {
 
         switch (data[0]){
                 
-            case FILE_META -> {    
-                byte[] metaDados = new byte[METADATA_SIZE];
-                System.arraycopy(data, pos, metaDados, 0, metaDados.length);
-                pos += metaDados.length;
+            case FILE_META -> {
+                byte[] md5hash = new byte[HASH_SIZE];
+                System.arraycopy(data, pos, md5hash, 0, md5hash.length);
+                pos += md5hash.length;
 
                 byte[] lastUpdated = new byte[LAST_UP_SIZE];
                 System.arraycopy(data, pos, lastUpdated, 0, lastUpdated.length);
                 pos += lastUpdated.length;
 
-                boolean hasNext = data[pos] == 0 ? false : true;
+                byte[] creationDate = new byte[CREATION_SIZE];
+                System.arraycopy(data, pos, creationDate, 0, creationDate.length);
+                pos += creationDate.length;
 
-                p = new Packet(FILE_META, new String(metaDados, UTF_8), u.bytesToLong(lastUpdated), hasNext);
+                byte[] nameSize = new byte[NAME_SIZE_SIZE];
+                System.arraycopy(data, pos, nameSize, 0, nameSize.length);
+                pos += nameSize.length;
+
+                byte[] filename = new byte[u.bytesToInt(nameSize)];
+                System.arraycopy(data, pos, filename, 0, filename.length);
+                pos += filename.length;
+
+                boolean hasNext = !(data[pos] == 0);
+
+                p = new Packet(FILE_META, new String(md5hash, UTF_8), u.bytesToLong(lastUpdated), 
+                               u.bytesToLong(creationDate), new String(filename, UTF_8), hasNext);
             }
             
             case DATA_TRANSFER -> {
+                
                 byte[] seqNum = new byte[SEQ_NUM_SIZE];
                 System.arraycopy(data, pos, seqNum, 0, seqNum.length);
                 pos += seqNum.length;
 
-                byte[] strSize = new byte[STR_SIZE_SIZE];
-                System.arraycopy(data, pos, strSize, 0, strSize.length);
-                pos += strSize.length;
+                byte[] md5hash = new byte[HASH_SIZE];
+                System.arraycopy(data, pos, md5hash, 0, md5hash.length);
+                pos += md5hash.length;
 
-                byte[] filename = new byte[u.bytesToInt(strSize)];
-                System.arraycopy(data, pos, filename, 0, filename.length);
-                pos += filename.length;
+                byte[] dataSize = new byte[DATA_SIZE_SIZE];
+                System.arraycopy(data, pos, dataSize, 0, dataSize.length);
+                pos += dataSize.length;
 
-                byte[] data__ = new byte[data.length - pos];
+                byte[] data__ = new byte[u.bytesToInt(dataSize)];
                 System.arraycopy(data, pos, data__, 0, data__.length);
 
-                p = new Packet(DATA_TRANSFER, u.bytesToShort(seqNum), new String(filename, UTF_8), data__);
+                p = new Packet(DATA_TRANSFER, u.bytesToShort(seqNum), new String(md5hash, UTF_8), data__);
             } 
                 
             case ACK -> {
@@ -140,31 +177,44 @@ public class Packet {
 
         switch(this.opcode){
 
-
             case FILE_META -> {
-                byte[] strToBytes = this.metaDados.getBytes(UTF_8);
-                System.arraycopy(strToBytes, 0, data, pos, this.metaDados.length());
-                pos += this.metaDados.length();
+                
+                byte[] strToBytes = this.md5hash.getBytes(UTF_8);
+                System.arraycopy(strToBytes, 0, data, pos, this.md5hash.length());
+                pos += this.md5hash.length();
 
                 byte[] longBytes = u.longToBytes(this.lastUpdated);
                 System.arraycopy(longBytes, 0, data, pos, longBytes.length);
                 pos += longBytes.length;
 
+                byte[] longBytes1 = u.longToBytes(this.creationDate);
+                System.arraycopy(longBytes1, 0, data, pos, longBytes1.length);
+                pos+= longBytes1.length;
+
+                byte[] intBytes = u.intToBytes(this.filename.length());
+                System.arraycopy(intBytes, 0, data, pos, intBytes.length);
+                pos+= intBytes.length;
+
+                byte[] filename = this.filename.getBytes(UTF_8);
+                System.arraycopy(filename, 0, data, pos, filename.length);
+                pos+= filename.length;
+
                 data[pos] = (byte) (this.hasNext ? 0 : 1);
             }
             
             case DATA_TRANSFER -> {
+
                 byte[] shortBytes = u.shortToBytes(this.sequenceNumber);
                 System.arraycopy(shortBytes, 0, data, pos, shortBytes.length);
                 pos += shortBytes.length;
 
-                byte[] intBytes = u.intToBytes(this.filename.length());
+                byte[] hash = this.md5hash.getBytes(UTF_8);
+                System.arraycopy(hash, 0, data, pos, this.md5hash.length());
+                pos += this.md5hash.length();
+
+                byte[] intBytes = u.intToBytes(this.data.length);
                 System.arraycopy(intBytes, 0, data, pos, intBytes.length);
                 pos += intBytes.length;
-
-                byte[] filename = this.filename.getBytes(UTF_8);
-                System.arraycopy(filename, 0, data, pos, filename.length);
-                pos += filename.length;
                 
                 System.arraycopy(this.data, 0, data, pos, this.data.length);
             }

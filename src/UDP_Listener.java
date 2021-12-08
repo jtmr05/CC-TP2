@@ -24,9 +24,13 @@ public class UDP_Listener implements Runnable {
         DatagramPacket in_packet = new DatagramPacket(buffer, buffer.length);
         
         try{
+
+            //aaa
+
             while(true){
                 this.data_socket.receive(in_packet);
-                Thread t = new Thread(new UDP_Handler(in_packet, this.path));
+                //aaa
+                Thread t = new Thread(new UDP_Handler(in_packet, this.path, address, port));
                 t.start();
             } 
         }
@@ -43,3 +47,12 @@ public class UDP_Listener implements Runnable {
         catch(Exception e){}
     }
 }
+
+
+// try {
+//     String s = CompletableFuture.supplyAsync(() -> br.readLine()).get(1, TimeUnit.SECONDS);
+// } catch (TimeoutException e) {
+//     System.out.println("Time out has occurred");
+// } catch (InterruptedException | ExecutionException e) {
+//     // Handle
+// }

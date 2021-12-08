@@ -17,7 +17,7 @@ public class TCP_Handler implements Runnable {
             PrintWriter out = new PrintWriter(new OutputStreamWriter(this.socket.getOutputStream()));
 
             
-            String body = "<html><title>just a string</title></html>"; 
+            String body = "<html><title>It's just a string</title></html>"; 
             StringBuilder header = new StringBuilder(); 
             header.append("HTTP/1.1 200 OK\n").
                    append("Server: localhost\n").
@@ -36,7 +36,6 @@ public class TCP_Handler implements Runnable {
         catch(IOException e){
             e.printStackTrace();
         }
-        
     }
     
 }
