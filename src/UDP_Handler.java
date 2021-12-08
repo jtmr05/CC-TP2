@@ -31,6 +31,7 @@ public class UDP_Handler implements Runnable {
         }
     }
 
+    /** temos que redefinir os metadados a trocar */
     private int hashFileMetadata() throws IOException {
         File file = new File(this.path);
         BasicFileAttributes meta = Files.readAttributes(file.toPath(), BasicFileAttributes.class);
