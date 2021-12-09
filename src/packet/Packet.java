@@ -12,31 +12,34 @@ import utils.*;
 public class Packet {
     
     /** The operation code as defined in {@linkplain Consts} */
-    private byte opcode;
+    private final byte opcode;
     /** md5 hash produced from the file's metadata (CreationDate and Filename) */
-    private String md5hash;
+    private final String md5hash;
     /** */
-    private long lastUpdated;
+    private final long lastUpdated;
     /** */
-    private long creationDate;
+    private final long creationDate;
     /** This attribute tells us if this is the last file*/
-    private boolean hasNext;
+    private final boolean hasNext;
     /** */
-    private short sequenceNumber;
+    private final short sequenceNumber;
     /** */
-    private String filename;
+    private final String filename;
     /** The raw data being sent/received*/
-    private byte[] data;
+    private final byte[] data;
 
 
-       
+
     public Packet(byte opcode, String md5hash, long lastUpdated, long creationDate, String filename, boolean hasNext){
         this.opcode = opcode;
         this.md5hash = md5hash;
         this.lastUpdated = lastUpdated;
-        this.hasNext = hasNext;
         this.creationDate = creationDate;
+        this.hasNext = hasNext;
         this.filename = filename;
+
+        this.sequenceNumber = -1; 
+        this.data = null;
     }
 
     public Packet(byte opcode, short sequenceNumber, String md5hash, byte[] data){
@@ -44,11 +47,19 @@ public class Packet {
         this.sequenceNumber = sequenceNumber;
         this.md5hash = md5hash;
         this.data = data;
+
+        this.lastUpdated = this.creationDate = -1;
+        this.hasNext = false;
+        this.filename = null;
     }
 
     public Packet(byte opcode, short sequenceNumber){
         this.opcode = opcode;
         this.sequenceNumber = sequenceNumber;
+
+        this.lastUpdated = this.creationDate = -1;
+        this.hasNext = false;
+        this.filename = this.md5hash = (String) (Object) (this.data = null);
     }
 
     public byte getOpcode(){

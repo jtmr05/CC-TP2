@@ -11,14 +11,14 @@ public class UDP_Listener implements Runnable {
     private final int port;
     private final InetAddress address;
     private final File dir;
-    private final MapWrapper mapWrapper;
+    private final MetadataTracker mapWrapper;
    
     public UDP_Listener(int port, File dir, InetAddress address) throws SocketException {
         this.port = port;
         this.address = address;
         this.dir = dir;
         this.data_socket = new DatagramSocket(this.port);
-        this.mapWrapper = new MapWrapper(dir);
+        this.mapWrapper = new MetadataTracker(dir);
     }
 
     @Override

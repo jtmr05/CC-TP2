@@ -4,6 +4,7 @@ import java.io.*;
 import java.net.*;
 
 import packet.*;
+
 import static packet.Consts.*;
 
 public class UDP_Handler implements Runnable { 
@@ -11,25 +12,25 @@ public class UDP_Handler implements Runnable {
     private final DatagramPacket dp;
     private final File dir;
     private final InetAddress address;
-    private final MapWrapper fileInfo;
+    private final MetadataTracker tracker;
 
-    public UDP_Handler(DatagramPacket dp, File dir, InetAddress address, int port, MapWrapper fileInfo){
+    public UDP_Handler(DatagramPacket dp, File dir, InetAddress address, int port, MetadataTracker tracker){
         this.dp = dp;
         this.dir = dir;
         this.address = address;
-        this.fileInfo = fileInfo;
+        this.tracker = tracker;
     }
 
     @Override
     public void run(){
         
         try {
-            Packet p = Packet.deserialize(this.dp);
+            Packet p = Packet.deserialize(this.dp); //received
             
             switch(p.getOpcode()){    
                 case FILE_META -> {
                     String key = p.getMD5Hash();
-                    this.fileInfo.put(key, p);
+                    this.tracker.remote.put(key, p);
                 }
 
                 case DATA_TRANSFER -> {}

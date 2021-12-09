@@ -14,10 +14,10 @@ import static packet.Consts.*;
 import packet.*;
 
 
-public class MapWrapper implements Closeable {
+public class MetadataTracker implements Closeable {
 
-    private final Lock lock;
-    private final Map<String, Packet> map;
+    protected final MapWrapper remote; //what files the other guy has
+    private final MapWrapper local;    //what files I have
     private final File dir;
     private final Thread t;
 
@@ -32,7 +32,7 @@ public class MapWrapper implements Closeable {
             try{
                 int stride = 10;
                 while(!Thread.interrupted()){
-                    MapWrapper.this.populate();
+                    MetadataTracker.this.populate();
                     for(int i = 0; i < 60000 && !Thread.interrupted(); i += stride) //dormir 1 min
                         Thread.sleep(stride);
                 }
@@ -40,41 +40,58 @@ public class MapWrapper implements Closeable {
             catch(IOException | InterruptedException e){}
         }
     }
+
+    protected class MapWrapper {
+
+        private final Lock lock;
+        private final Map<String, Packet> map;
+
+        private MapWrapper(){
+            this.lock = new ReentrantLock();
+            this.map = new HashMap<>();
+        }
+
+        protected Packet put(String key, Packet value) {
+            this.lock.lock();
+            Packet p = this.map.put(key, value);
+            this.lock.unlock();
+            return p;
+        }
     
-    protected MapWrapper(File dir){
-        this.lock = new ReentrantLock();
-        this.map = new HashMap<>();
+        protected boolean containsKey(Object key) {
+            this.lock.lock();
+            boolean b = this.map.containsKey(key);
+            this.lock.unlock();
+            return b;
+        }
+    
+        protected Packet get(String key){
+            this.lock.lock();
+            Packet p = this.map.get(key);
+            this.lock.unlock();
+            return p;
+        }
+    
+        protected Packet remove(Object key){
+            this.lock.lock();
+            Packet p = this.map.remove(key);
+            this.lock.unlock();
+            return p;
+        }
+    
+        protected Set<Entry<String, Packet>> entrySet(){
+            this.lock.lock();
+            var s = this.map.entrySet();
+            this.lock.unlock();
+            return s;
+        }
+    }
+
+    protected MetadataTracker(File dir){
+        this.local = new MapWrapper();
+        this.remote = new MapWrapper();
         this.dir = dir;
-        this.t = new Thread(new Monitor()); 
-        this.t.start();
-    }
-
-    protected Packet put(String key, Packet value) {
-        this.lock.lock();
-        Packet p = this.map.put(key, value);
-        this.lock.unlock();
-        return p;
-    }
-
-    protected boolean containsKey(Object key) {
-        this.lock.lock();
-        boolean b = this.map.containsKey(key);
-        this.lock.unlock();
-        return b;
-    }
-
-    protected Packet get(String key){
-        this.lock.lock();
-        Packet p = this.map.get(key);
-        this.lock.unlock();
-        return p;
-    }
-
-    protected Set<Entry<String, Packet>> entrySet(){
-        this.lock.lock();
-        var s = this.map.entrySet();
-        this.lock.unlock();
-        return s;
+        (this.t = new Thread(new Monitor())).start(); 
     }
 
     private void populate() throws IOException {
@@ -86,10 +103,13 @@ public class MapWrapper implements Closeable {
             for(int i = 0; i < size; i++){
                 BasicFileAttributes meta = Files.readAttributes(files[i].toPath(), BasicFileAttributes.class);
                 String key = this.hashFileMetadata(files[i], meta);
-                boolean hasNext = i != (size-1);
-                Packet p = new Packet(FILE_META, key, meta.lastModifiedTime().toMillis(), 
-                                      meta.creationTime().toMillis(), files[i].getName(), hasNext);
-                this.put(key, p);
+                
+                if(!this.local.containsKey(key)){
+                    boolean hasNext = i != (size-1);
+                    Packet p = new Packet(FILE_META, key, meta.lastModifiedTime().toMillis(), 
+                                          meta.creationTime().toMillis(), files[i].getName(), hasNext);    
+                    this.local.put(key, p);
+                }
             }
         }
     }
