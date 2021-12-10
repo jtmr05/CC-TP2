@@ -16,14 +16,19 @@ public class FFSync {
                 int port = Integer.parseInt(args[1]); 
                 InetAddress address = InetAddress.getByName(args[2]);
 
-                Thread tcp_listener = new Thread(new TCP_Listener(port));
-                Thread udp_listener = new Thread(new UDP_Listener(port, dir, address));
+                var tcp_listener = new TCP_Listener(port);
+                var udp_listener = new UDP_Listener(port, dir, address);
 
-                tcp_listener.start();
-                udp_listener.start();
+                try(udp_listener; tcp_listener){
+                    Thread tcp_thread = new Thread(tcp_listener);
+                    Thread udp_thread = new Thread(udp_listener);
+
+                    tcp_thread.start();
+                    udp_thread.start();
+                }
             }
             else
-                System.err.println("Path is a regular file.");
+                System.err.println("Not a directory. Please specify a path to a directory.");
         }
         else
             System.err.println("Usage: directory_path port_to_listen_on destination_address");

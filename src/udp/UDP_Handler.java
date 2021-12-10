@@ -12,9 +12,9 @@ public class UDP_Handler implements Runnable {
     private final DatagramPacket dp;
     private final File dir;
     private final InetAddress address;
-    private final MetadataTracker tracker;
+    private final FileTracker tracker;
 
-    public UDP_Handler(DatagramPacket dp, File dir, InetAddress address, int port, MetadataTracker tracker){
+    public UDP_Handler(DatagramPacket dp, File dir, InetAddress address, int port, FileTracker tracker){
         this.dp = dp;
         this.dir = dir;
         this.address = address;
@@ -30,7 +30,12 @@ public class UDP_Handler implements Runnable {
             switch(p.getOpcode()){    
                 case FILE_META -> {
                     String key = p.getMD5Hash();
-                    this.tracker.remote.put(key, p);
+                    boolean hasNext = p.getHasNext();
+                    this.tracker.putInRemote(key, p);
+                    if(!hasNext){
+                        this.tracker.toSendSet();
+                        //TODO
+                    }
                 }
 
                 case DATA_TRANSFER -> {}

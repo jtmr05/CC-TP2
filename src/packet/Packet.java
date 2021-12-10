@@ -2,7 +2,7 @@ package packet;
 
 import java.net.DatagramPacket;
 import java.net.InetAddress;
-
+import java.util.Arrays;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -15,15 +15,15 @@ public class Packet {
     private final byte opcode;
     /** md5 hash produced from the file's metadata (CreationDate and Filename) */
     private final String md5hash;
-    /** */
+    /** Epoch time of the last time file was updated*/
     private final long lastUpdated;
-    /** */
+    /** Epoch time of the files creation date */
     private final long creationDate;
     /** This attribute tells us if this is the last file*/
     private final boolean hasNext;
-    /** */
+    /** The chunk sequence number*/
     private final short sequenceNumber;
-    /** */
+    /** The filename */
     private final String filename;
     /** The raw data being sent/received*/
     private final byte[] data;
@@ -66,6 +66,10 @@ public class Packet {
         return this.opcode;
     } 
 
+    public String getMD5Hash(){
+        return this.md5hash;
+    }
+
     public long getLastUpdated(){
         return this.lastUpdated;
     }   
@@ -74,16 +78,16 @@ public class Packet {
         return this.creationDate;
     }
 
-    public short getSeqNum(){
+    public boolean getHasNext(){
+        return this.hasNext;
+    }
+
+    public short getSequenceNumber(){
         return this.sequenceNumber;
     }
 
     public String getFilename(){
         return this.filename;
-    }
-
-    public String getMD5Hash(){
-        return this.md5hash;
     }
 
     /**
@@ -127,14 +131,13 @@ public class Packet {
                 System.arraycopy(data, pos, filename, 0, filename.length);
                 pos += filename.length;
 
-                boolean hasNext = !(data[pos] == 0);
+                boolean hasNext = data[pos] != 0;
 
                 p = new Packet(FILE_META, new String(md5hash, UTF_8), u.bytesToLong(lastUpdated), 
                                u.bytesToLong(creationDate), new String(filename, UTF_8), hasNext);
             }
             
             case DATA_TRANSFER -> {
-                
                 byte[] seqNum = new byte[SEQ_NUM_SIZE];
                 System.arraycopy(data, pos, seqNum, 0, seqNum.length);
                 pos += seqNum.length;
@@ -198,21 +201,24 @@ public class Packet {
                 System.arraycopy(longBytes, 0, data, pos, longBytes.length);
                 pos += longBytes.length;
 
-                byte[] longBytes1 = u.longToBytes(this.creationDate);
-                System.arraycopy(longBytes1, 0, data, pos, longBytes1.length);
-                pos+= longBytes1.length;
+                byte[] longBytes_ = u.longToBytes(this.creationDate);
+                System.arraycopy(longBytes_, 0, data, pos, longBytes_.length);
+                pos += longBytes_.length;
 
                 byte[] intBytes = u.intToBytes(this.filename.length());
                 System.arraycopy(intBytes, 0, data, pos, intBytes.length);
-                pos+= intBytes.length;
+                pos += intBytes.length;
 
                 byte[] filename = this.filename.getBytes(UTF_8);
                 System.arraycopy(filename, 0, data, pos, filename.length);
-                pos+= filename.length;
+                pos += filename.length;
 
-                data[pos] = (byte) (this.hasNext ? 0 : 1);
+                data[pos] = (byte) (this.hasNext ? 1 : 0);
+                pos++;
+
+                Arrays.fill(data, pos, data.length, (byte) 0);
             }
-            
+
             case DATA_TRANSFER -> {
 
                 byte[] shortBytes = u.shortToBytes(this.sequenceNumber);
@@ -220,14 +226,17 @@ public class Packet {
                 pos += shortBytes.length;
 
                 byte[] hash = this.md5hash.getBytes(UTF_8);
-                System.arraycopy(hash, 0, data, pos, this.md5hash.length());
-                pos += this.md5hash.length();
+                System.arraycopy(hash, 0, data, pos, hash.length);
+                pos += hash.length;
 
                 byte[] intBytes = u.intToBytes(this.data.length);
                 System.arraycopy(intBytes, 0, data, pos, intBytes.length);
                 pos += intBytes.length;
                 
                 System.arraycopy(this.data, 0, data, pos, this.data.length);
+                pos += this.data.length;
+
+                Arrays.fill(data, pos, data.length, (byte) 0);
             }
 
             case ACK -> {
@@ -235,6 +244,7 @@ public class Packet {
                 System.arraycopy(shortBytes, 0, data, pos, shortBytes.length);
                 pos += shortBytes.length;
 
+                Arrays.fill(data, pos, data.length, (byte) 0);
             }
 
             default ->

@@ -3,7 +3,7 @@ package tcp;
 import java.io.*;
 import java.net.*;
 
-public class TCP_Listener implements Runnable {
+public class TCP_Listener implements Runnable, AutoCloseable {
     
     private final int port;
     private final ServerSocket server_socket;
@@ -31,6 +31,7 @@ public class TCP_Listener implements Runnable {
         }
     }
 
+    @Override
     public void close(){
         try{   
             this.server_socket.close();

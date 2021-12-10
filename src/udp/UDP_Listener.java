@@ -3,37 +3,37 @@ package udp;
 import java.net.*;
 import java.io.*;
 
-import packet.Consts;
+import static packet.Consts.*;
 
-public class UDP_Listener implements Runnable {
+public class UDP_Listener implements Runnable, AutoCloseable {
     
-    private final DatagramSocket data_socket;
+    private final DatagramSocket dataSocket;
     private final int port;
     private final InetAddress address;
     private final File dir;
-    private final MetadataTracker mapWrapper;
+    private final FileTracker tracker;
    
     public UDP_Listener(int port, File dir, InetAddress address) throws SocketException {
         this.port = port;
         this.address = address;
         this.dir = dir;
-        this.data_socket = new DatagramSocket(this.port);
-        this.mapWrapper = new MetadataTracker(dir);
+        this.dataSocket = new DatagramSocket(this.port);
+        this.tracker = new FileTracker(dir);
     }
 
     @Override
     public void run(){
-        byte[] buffer = new byte[Consts.MAX_PACKET_SIZE];
-        DatagramPacket in_packet = new DatagramPacket(buffer, buffer.length);
+        byte[] buffer = new byte[MAX_PACKET_SIZE];
+        DatagramPacket inPacket = new DatagramPacket(buffer, buffer.length);
         
         try{
 
             //aaa
 
             while(true){
-                this.data_socket.receive(in_packet);
+                this.dataSocket.receive(inPacket);
                 //aaa
-                Thread t = new Thread(new UDP_Handler(in_packet, this.dir, address, port, this.mapWrapper));
+                Thread t = new Thread(new UDP_Handler(inPacket, this.dir, address, port, this.tracker));
                 t.start();
             } 
         }
@@ -43,9 +43,10 @@ public class UDP_Listener implements Runnable {
         }
     }
 
+    @Override
     public void close(){
         try{
-            this.data_socket.close();
+            this.dataSocket.close();
         }
         catch(Exception e){}
     }

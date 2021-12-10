@@ -9,15 +9,16 @@ import java.security.*;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.locks.*;
+import java.util.stream.Collectors;
 
 import static packet.Consts.*;
 import packet.*;
 
 
-public class MetadataTracker implements Closeable {
+public class FileTracker implements Closeable {
 
-    protected final MapWrapper remote; //what files the other guy has
     private final MapWrapper local;    //what files I have
+    private final MapWrapper remote;   //what files the other guy has
     private final File dir;
     private final Thread t;
 
@@ -30,18 +31,22 @@ public class MetadataTracker implements Closeable {
         public void run() {
             
             try{
-                int stride = 10;
+                final int stride = 10, millis = SECONDS_OF_SLEEP * 1000;
+                int i = 0;
                 while(!Thread.interrupted()){
-                    MetadataTracker.this.populate();
-                    for(int i = 0; i < 60000 && !Thread.interrupted(); i += stride) //dormir 1 min
-                        Thread.sleep(stride);
+                    if(i == 0)
+                        FileTracker.this.populate();
+                    i += stride;
+                    if(i >= millis)
+                        i = 0;
+                    Thread.sleep(stride);
                 }
             }
             catch(IOException | InterruptedException e){}
         }
     }
 
-    protected class MapWrapper {
+    private class MapWrapper {
 
         private final Lock lock;
         private final Map<String, Packet> map;
@@ -87,7 +92,7 @@ public class MetadataTracker implements Closeable {
         }
     }
 
-    protected MetadataTracker(File dir){
+    protected FileTracker(File dir){
         this.local = new MapWrapper();
         this.remote = new MapWrapper();
         this.dir = dir;
@@ -134,6 +139,22 @@ public class MetadataTracker implements Closeable {
         catch(NoSuchAlgorithmException e){
             return null;
         }
+    }
+
+    public boolean putInRemote(String key, Packet value){
+        return this.remote.put(key, value) != null;
+    }
+
+    /**
+     * Computes the {@link Set} of identifiers representing the missing files in the peer directory.
+     * @return The set of identifiers
+     */
+    public Set<String> toSendSet(){
+        var localIter = this.local.entrySet();  //to guarantee concurrency
+        return localIter.stream().
+                         map(Entry::getKey).
+                         filter(k -> !this.remote.containsKey(k)).
+                         collect(Collectors.toSet());
     }
 
     @Override
