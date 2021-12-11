@@ -42,14 +42,14 @@ public class Packet {
         this.data = null;
     }
 
-    public Packet(byte opcode, short sequenceNumber, String md5hash, byte[] data){
+    public Packet(byte opcode, short sequenceNumber, String md5hash, boolean hasNext, byte[] data){
         this.opcode = opcode;
         this.sequenceNumber = sequenceNumber;
         this.md5hash = md5hash;
+        this.hasNext = hasNext;
         this.data = data;
 
         this.lastUpdated = this.creationDate = -1;
-        this.hasNext = false;
         this.filename = null;
     }
 
@@ -146,6 +146,9 @@ public class Packet {
                 System.arraycopy(data, pos, md5hash, 0, md5hash.length);
                 pos += md5hash.length;
 
+                boolean hasNext = data[pos] != 0;
+                pos++;
+
                 byte[] dataSize = new byte[DATA_SIZE_SIZE];
                 System.arraycopy(data, pos, dataSize, 0, dataSize.length);
                 pos += dataSize.length;
@@ -153,7 +156,8 @@ public class Packet {
                 byte[] data__ = new byte[u.bytesToInt(dataSize)];
                 System.arraycopy(data, pos, data__, 0, data__.length);
 
-                p = new Packet(DATA_TRANSFER, u.bytesToShort(seqNum), new String(md5hash, UTF_8), data__);
+                p = new Packet(DATA_TRANSFER, u.bytesToShort(seqNum), new String(md5hash, UTF_8), 
+                               hasNext, data__);
             } 
                 
             case ACK -> {
@@ -229,9 +233,12 @@ public class Packet {
                 System.arraycopy(hash, 0, data, pos, hash.length);
                 pos += hash.length;
 
-                byte[] intBytes = u.intToBytes(this.data.length);
-                System.arraycopy(intBytes, 0, data, pos, intBytes.length);
-                pos += intBytes.length;
+                data[pos] = (byte) (this.hasNext ? 1 : 0);
+                pos++;
+
+                byte[] shortBytes_ = u.intToBytes(this.data.length);
+                System.arraycopy(shortBytes_, 0, data, pos, shortBytes_.length);
+                pos += shortBytes_.length;
                 
                 System.arraycopy(this.data, 0, data, pos, this.data.length);
                 pos += this.data.length;

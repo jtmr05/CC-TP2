@@ -7,18 +7,24 @@ import static packet.Consts.*;
 
 public class UDP_Listener implements Runnable, AutoCloseable {
     
-    private final DatagramSocket dataSocket;
     private final int port;
     private final InetAddress address;
+    private final DatagramSocket inSocket;
     private final File dir;
     private final FileTracker tracker;
+    
+    private final UDP_Sender udp_sender;
+    private final Thread senderThread;
    
-    public UDP_Listener(int port, File dir, InetAddress address) throws SocketException {
+    public UDP_Listener(int port, InetAddress address, File dir) throws SocketException {
         this.port = port;
         this.address = address;
         this.dir = dir;
-        this.dataSocket = new DatagramSocket(this.port);
-        this.tracker = new FileTracker(dir);
+        this.inSocket = new DatagramSocket(this.port);
+        this.tracker = new FileTracker(this.dir);
+
+        this.udp_sender = new UDP_Sender(this.address, this.port, this.tracker);
+        (this.senderThread = new Thread(this.udp_sender)).start();
     }
 
     @Override
@@ -27,14 +33,11 @@ public class UDP_Listener implements Runnable, AutoCloseable {
         DatagramPacket inPacket = new DatagramPacket(buffer, buffer.length);
         
         try{
-
-            //aaa
-
             while(true){
-                this.dataSocket.receive(inPacket);
-                //aaa
-                Thread t = new Thread(new UDP_Handler(inPacket, this.dir, address, port, this.tracker));
-                t.start();
+                this.inSocket.receive(inPacket);
+                
+                Thread t2 = new Thread(new UDP_Handler(inPacket, this.dir, address, port, this.tracker));
+                t2.start();
             } 
         }
         catch(IOException e){}
@@ -46,7 +49,9 @@ public class UDP_Listener implements Runnable, AutoCloseable {
     @Override
     public void close(){
         try{
-            this.dataSocket.close();
+            this.senderThread.interrupt();
+            this.udp_sender.close();
+            this.inSocket.close();
         }
         catch(Exception e){}
     }

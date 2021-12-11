@@ -7,15 +7,16 @@ import packet.*;
 
 import static packet.Consts.*;
 
+/** Handles the received {@linkplain DatagramPacket}. */
 public class UDP_Handler implements Runnable { 
     
-    private final DatagramPacket dp;
+    private final DatagramPacket received;
     private final File dir;
     private final InetAddress address;
     private final FileTracker tracker;
 
-    public UDP_Handler(DatagramPacket dp, File dir, InetAddress address, int port, FileTracker tracker){
-        this.dp = dp;
+    protected UDP_Handler(DatagramPacket received, File dir, InetAddress address, int port, FileTracker tracker){
+        this.received = received;
         this.dir = dir;
         this.address = address;
         this.tracker = tracker;
@@ -25,9 +26,9 @@ public class UDP_Handler implements Runnable {
     public void run(){
         
         try {
-            Packet p = Packet.deserialize(this.dp); //received
+            Packet p = Packet.deserialize(this.received);
             
-            switch(p.getOpcode()){    
+            switch(p.getOpcode()){
                 case FILE_META -> {
                     String key = p.getMD5Hash();
                     boolean hasNext = p.getHasNext();

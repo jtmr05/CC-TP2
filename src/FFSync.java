@@ -7,7 +7,7 @@ import udp.UDP_Listener;
 public class FFSync {
 
     public static void main(String[] args) throws IOException {
-        
+
         if(args.length >= 3){
             String path = args[0];
             File dir = new File(path);
@@ -17,7 +17,7 @@ public class FFSync {
                 InetAddress address = InetAddress.getByName(args[2]);
 
                 var tcp_listener = new TCP_Listener(port);
-                var udp_listener = new UDP_Listener(port, dir, address);
+                var udp_listener = new UDP_Listener(port, address, dir);
 
                 try(udp_listener; tcp_listener){
                     Thread tcp_thread = new Thread(tcp_listener);

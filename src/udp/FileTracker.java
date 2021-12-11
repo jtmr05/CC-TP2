@@ -17,8 +17,10 @@ import packet.*;
 
 public class FileTracker implements Closeable {
 
-    private final MapWrapper local;    //what files I have
-    private final MapWrapper remote;   //what files the other guy has
+    private final Map<String, Packet> local;    //what files I have
+    private final Map<String, Packet> remote;   //what files the other guy has
+    private final Lock localLock;
+    private final Lock remoteLock;
     private final File dir;
     private final Thread t;
 
@@ -29,7 +31,6 @@ public class FileTracker implements Closeable {
 
         @Override
         public void run() {
-            
             try{
                 final int stride = 10, millis = SECONDS_OF_SLEEP * 1000;
                 int i = 0;
@@ -42,79 +43,52 @@ public class FileTracker implements Closeable {
                     Thread.sleep(stride);
                 }
             }
-            catch(IOException | InterruptedException e){}
+            catch(InterruptedException e){}
         }
     }
 
-    private class MapWrapper {
-
-        private final Lock lock;
-        private final Map<String, Packet> map;
-
-        private MapWrapper(){
-            this.lock = new ReentrantLock();
-            this.map = new HashMap<>();
-        }
-
-        protected Packet put(String key, Packet value) {
-            this.lock.lock();
-            Packet p = this.map.put(key, value);
-            this.lock.unlock();
-            return p;
-        }
-    
-        protected boolean containsKey(Object key) {
-            this.lock.lock();
-            boolean b = this.map.containsKey(key);
-            this.lock.unlock();
-            return b;
-        }
-    
-        protected Packet get(String key){
-            this.lock.lock();
-            Packet p = this.map.get(key);
-            this.lock.unlock();
-            return p;
-        }
-    
-        protected Packet remove(Object key){
-            this.lock.lock();
-            Packet p = this.map.remove(key);
-            this.lock.unlock();
-            return p;
-        }
-    
-        protected Set<Entry<String, Packet>> entrySet(){
-            this.lock.lock();
-            var s = this.map.entrySet();
-            this.lock.unlock();
-            return s;
-        }
-    }
+   
 
     protected FileTracker(File dir){
-        this.local = new MapWrapper();
-        this.remote = new MapWrapper();
+        this.local = new HashMap<>();
+        this.remote = new HashMap<>();
+        this.localLock = new ReentrantLock();
+        this.remoteLock = new ReentrantLock();
         this.dir = dir;
-        (this.t = new Thread(new Monitor())).start(); 
+        (this.t = new Thread(new Monitor())).start();
     }
 
-    private void populate() throws IOException {
+    private void populate(){
 
         if(this.dir.isDirectory()){
             File[] files = (File[]) Arrays.stream(this.dir.listFiles()).filter(File::isFile).toArray();
-            int size = files.length;
+            final int size = files.length;
 
-            for(int i = 0; i < size; i++){
-                BasicFileAttributes meta = Files.readAttributes(files[i].toPath(), BasicFileAttributes.class);
-                String key = this.hashFileMetadata(files[i], meta);
+            try{
+                this.localLock.lock();
+
+                this.remoteLock.lock();
+                this.remote.clear();
+                this.remoteLock.unlock();
+
+                this.local.clear();
                 
-                if(!this.local.containsKey(key)){
-                    boolean hasNext = i != (size-1);
-                    Packet p = new Packet(FILE_META, key, meta.lastModifiedTime().toMillis(), 
-                                          meta.creationTime().toMillis(), files[i].getName(), hasNext);    
-                    this.local.put(key, p);
+                for(int i = 0; i < size; i++){
+                    var meta = Files.readAttributes(files[i].toPath(), BasicFileAttributes.class);
+                    String key = this.hashFileMetadata(files[i], meta);
+
+                    if(!this.local.containsKey(key)){
+                        boolean hasNext = i != (size-1);
+                        Packet p = new Packet(FILE_META, key, meta.lastModifiedTime().toMillis(), 
+                                              meta.creationTime().toMillis(), files[i].getName(), hasNext);   
+
+                        this.local.put(key, p);
+                    }
                 }
+                this.localLock.unlock();
+            }
+            catch(IOException e){
+                this.localLock.unlock();
             }
         }
     }
@@ -142,19 +116,44 @@ public class FileTracker implements Closeable {
     }
 
     public boolean putInRemote(String key, Packet value){
-        return this.remote.put(key, value) != null;
+        this.remoteLock.lock();
+        boolean b = this.remote.put(key, value) != null;
+        this.remoteLock.unlock();
+        return b;
     }
 
     /**
-     * Computes the {@link Set} of identifiers representing the missing files in the peer directory.
-     * @return The set of identifiers
+     * Computes the {@link Set} of packets representing the missing files in the peer directory.
+     * @return The set of metadata packets
      */
-    public Set<String> toSendSet(){
-        var localIter = this.local.entrySet();  //to guarantee concurrency
-        return localIter.stream().
-                         map(Entry::getKey).
-                         filter(k -> !this.remote.containsKey(k)).
-                         collect(Collectors.toSet());
+    public Set<Packet> toSendSet(){
+        this.localLock.lock();
+        var localSet = this.local.entrySet();
+        this.localLock.unlock();
+
+        try{
+            this.remoteLock.lock();
+            return localSet.stream().
+                            filter(e -> !this.remote.containsKey(e.getKey())).
+                            map(Entry::getValue).
+                            collect(Collectors.toSet());
+        }
+        finally{
+            this.remoteLock.unlock();
+        }
+    }
+
+    public List<Packet> toSendMetadataList(){
+        this.localLock.lock();
+        var localSet = this.local.entrySet();
+        this.localLock.unlock();
+
+        var list = localSet.stream().
+                            map(Entry::getValue).
+                            collect(Collectors.toList());
+
+        list.sort((p1, p2) -> Boolean.compare(p2.getHasNext(), p1.getHasNext()));
+        return list;
     }
 
     @Override

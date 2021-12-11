@@ -1,4 +1,4 @@
-package udp;
+package utils;
 
 public class AllChunksReadException extends Exception {
 
