@@ -1,6 +1,6 @@
 package utils;
 
-public class AllChunksReadException extends Exception {
+public class AllChunksReadException extends RuntimeException {
 
     public AllChunksReadException(){
         super();

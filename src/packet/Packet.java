@@ -29,7 +29,7 @@ public class Packet {
     private final byte[] data;
 
 
-
+    //FILE_META
     public Packet(byte opcode, String md5hash, long lastUpdated, long creationDate, String filename, boolean hasNext){
         this.opcode = opcode;
         this.md5hash = md5hash;
@@ -42,6 +42,7 @@ public class Packet {
         this.data = null;
     }
 
+    //DATA_TRANSFER
     public Packet(byte opcode, short sequenceNumber, String md5hash, boolean hasNext, byte[] data){
         this.opcode = opcode;
         this.sequenceNumber = sequenceNumber;
@@ -53,13 +54,15 @@ public class Packet {
         this.filename = null;
     }
 
-    public Packet(byte opcode, short sequenceNumber){
+    //ACK
+    public Packet(byte opcode, short sequenceNumber, String md5hash){
         this.opcode = opcode;
         this.sequenceNumber = sequenceNumber;
+        this.md5hash = md5hash;
 
         this.lastUpdated = this.creationDate = -1;
         this.hasNext = false;
-        this.filename = this.md5hash = (String) (Object) (this.data = null);
+        this.filename = (String) (Object) (this.data = null);
     }
 
     public byte getOpcode(){
@@ -88,6 +91,12 @@ public class Packet {
 
     public String getFilename(){
         return this.filename;
+    }
+
+    public byte[] getData(){
+        byte[] ret = new byte[this.data.length];
+        System.arraycopy(this.data, 0, ret, 0, ret.length);
+        return ret;
     }
 
     /**
@@ -163,8 +172,12 @@ public class Packet {
             case ACK -> {
                 byte[] seqNum = new byte[SEQ_NUM_SIZE];
                 System.arraycopy(data, pos, seqNum, 0, seqNum.length);
+                pos += seqNum.length;
+
+                byte[] md5hash = new byte[HASH_SIZE];
+                System.arraycopy(data, pos, md5hash, 0, md5hash.length);
                 
-                p = new Packet(ACK, u.bytesToShort(seqNum));
+                p = new Packet(ACK, u.bytesToShort(seqNum), new String(md5hash, UTF_8));
             }
             
             default ->
@@ -250,6 +263,10 @@ public class Packet {
                 byte[] shortBytes = u.shortToBytes(this.sequenceNumber);
                 System.arraycopy(shortBytes, 0, data, pos, shortBytes.length);
                 pos += shortBytes.length;
+
+                byte[] hash = this.md5hash.getBytes(UTF_8);
+                System.arraycopy(hash, 0, data, pos, hash.length);
+                pos += hash.length;
 
                 Arrays.fill(data, pos, data.length, (byte) 0);
             }

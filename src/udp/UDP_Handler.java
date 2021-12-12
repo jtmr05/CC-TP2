@@ -2,8 +2,10 @@ package udp;
 
 import java.io.*;
 import java.net.*;
+import java.util.*;
 
 import packet.*;
+import utils.*;
 
 import static packet.Consts.*;
 
@@ -12,44 +14,52 @@ public class UDP_Handler implements Runnable {
     
     private final DatagramPacket received;
     private final File dir;
-    private final InetAddress address;
     private final FileTracker tracker;
+    private final Map<String, FileChunkWriter> map;
 
-    protected UDP_Handler(DatagramPacket received, File dir, InetAddress address, int port, FileTracker tracker){
+    protected UDP_Handler(DatagramPacket received, File dir, FileTracker tracker){
         this.received = received;
         this.dir = dir;
-        this.address = address;
         this.tracker = tracker;
+        this.map = new HashMap<>();
     }
 
     @Override
     public void run(){
         
-        try {
+        try{
             Packet p = Packet.deserialize(this.received);
+            String key = p.getMD5Hash();
             
             switch(p.getOpcode()){
-                case FILE_META -> {
-                    String key = p.getMD5Hash();
-                    boolean hasNext = p.getHasNext();
+
+                case FILE_META -> 
                     this.tracker.putInRemote(key, p);
-                    if(!hasNext){
-                        this.tracker.toSendSet();
-                        //TODO
+
+                case DATA_TRANSFER -> {
+                    var fcw = this.map.get(key);
+                    try{
+                        if(fcw == null){ 
+                            String filename = this.tracker.getRemoteFilename(key);
+                            String dirPath = this.dir.getAbsolutePath();
+                            String filePath = new StringBuilder(dirPath).append("/").append(filename).toString();
+                            fcw = FileChunkWriter.factory(filePath, this.tracker.getRemoteCreationTime(key));
+                        }
+                        if(fcw != null){
+                            this.map.put(key, fcw);
+                            int off = p.getSequenceNumber() - INIT_SEQ_NUMBER;
+                            fcw.writeChunk(p.getData(), off);
+                        }
                     }
+                    catch(IOException e){}
                 }
 
-                case DATA_TRANSFER -> {}
-
-                case ACK -> {}
+                case ACK -> 
+                    this.tracker.ack(key, p.getSequenceNumber());
 
                 default -> {}
             }
         }
-        catch (IllegalOpCodeException e){}
+        catch (IllegalOpCodeException e){} //ignore any other opcode
     }
-    
-    //Files.getFileAttributeView(file.toPath(), BasicFileAttributeView.class).setTimes(lastModifiedTime, 
-    //lastAccessTime, createTime); 
-    // O que não queremos alterar pomos null        
 }

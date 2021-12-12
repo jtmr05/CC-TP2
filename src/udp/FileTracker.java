@@ -19,8 +19,15 @@ public class FileTracker implements Closeable {
 
     private final Map<String, Packet> local;    //what files I have
     private final Map<String, Packet> remote;   //what files the other guy has
+    private final Map<String, AckTracker> acks; //keep track of what was sent successfully
+
     private final Lock localLock;
     private final Lock remoteLock;
+    private final Condition cond; //makes a thread wait when there is still metadata to be received
+    private final Lock ackLock;
+
+    private boolean hasNext;
+
     private final File dir;
     private final Thread t;
 
@@ -47,40 +54,114 @@ public class FileTracker implements Closeable {
         }
     }
 
-   
+    private class AckTracker {
+
+        private final Map<Short, Packet> sent;  
+        private short currentSequenceNumber;
+        private short biggest;
+
+        protected AckTracker(){
+            this.sent = new HashMap<>();
+            this.currentSequenceNumber = this.biggest = INIT_SEQ_NUMBER;
+        }
+    }
+
+    protected void ack(String id, short seqNum){
+        this.ackLock.lock();
+        var ackTracker = this.acks.get(id);
+        
+        ackTracker.sent.remove(seqNum);
+        
+        while(!ackTracker.sent.containsKey(ackTracker.currentSequenceNumber) && 
+               ackTracker.currentSequenceNumber < ackTracker.biggest)
+            ackTracker.currentSequenceNumber++;
+        
+        this.ackLock.unlock();
+    }
+
+    protected void addToSent(String id, short seqNum, Packet p){
+        this.ackLock.lock();
+        var ackTracker = this.acks.get(id);
+        ackTracker.sent.put(seqNum, p); 
+        ackTracker.biggest = (short) Math.max(ackTracker.biggest, seqNum);
+        this.ackLock.unlock();
+    }
+
+    protected short getCurrentSequenceNumber(String id){
+        this.ackLock.lock();
+        var ackTracker = this.acks.get(id);
+        short s = ackTracker.currentSequenceNumber;
+        this.ackLock.unlock();
+        return s;
+    }
+
+    protected boolean isEmpty(String id){
+        this.ackLock.lock();
+        var ackTracker = this.acks.get(id);
+        boolean b = ackTracker.sent.isEmpty();
+        this.ackLock.unlock();
+        return b;
+    }
+
+    protected Packet getCachedPacket(String id, short seqNum){
+        this.ackLock.lock();
+        var ackTracker = this.acks.get(id);
+        Packet p = ackTracker.sent.get(seqNum);
+        this.ackLock.unlock();
+        return p;
+    }
 
     protected FileTracker(File dir){
         this.local = new HashMap<>();
         this.remote = new HashMap<>();
+        this.acks = new HashMap<>();
+
         this.localLock = new ReentrantLock();
         this.remoteLock = new ReentrantLock();
+        this.cond = this.remoteLock.newCondition();
+        this.ackLock = new ReentrantLock();
+        
+        this.hasNext = false;
+
         this.dir = dir;
         (this.t = new Thread(new Monitor())).start();
+    }
+
+    public String getRemoteFilename(String id){
+        this.remoteLock.lock();
+        String filename = this.remote.get(id).getFilename();
+        this.remoteLock.unlock();
+        return filename;
+    }
+
+    public long getRemoteCreationTime(String id){
+        this.remoteLock.lock();
+        long l = this.remote.get(id).getCreationDate();
+        this.remoteLock.unlock();
+        return l;
     }
 
     private void populate(){
 
         if(this.dir.isDirectory()){
-            File[] files = (File[]) Arrays.stream(this.dir.listFiles()).filter(File::isFile).toArray();
-            final int size = files.length;
+            List<File> files = Arrays.stream(this.dir.listFiles()).
+                                      filter(File::isFile).
+                                      collect(Collectors.toList());
+            final int size = files.size();
 
             try{
-                this.localLock.lock();
-
-                this.remoteLock.lock();
-                this.remote.clear();
-                this.remoteLock.unlock();
-
-                this.local.clear();
-                
+                this.localLock.lock(); 
+                this.local.clear();        //empty the map before adding new info
+                 
                 for(int i = 0; i < size; i++){
-                    var meta = Files.readAttributes(files[i].toPath(), BasicFileAttributes.class);
-                    String key = this.hashFileMetadata(files[i], meta);
+                    File f = files.get(i);
+                    var meta = Files.readAttributes(f.toPath(), BasicFileAttributes.class);
+                    String key = this.hashFileMetadata(f, meta);
 
                     if(!this.local.containsKey(key)){
                         boolean hasNext = i != (size-1);
                         Packet p = new Packet(FILE_META, key, meta.lastModifiedTime().toMillis(), 
-                                              meta.creationTime().toMillis(), files[i].getName(), hasNext);   
+                                              meta.creationTime().toMillis(), f.getName(), hasNext);   
 
                         this.local.put(key, p);
                     }
@@ -115,10 +196,20 @@ public class FileTracker implements Closeable {
         }
     }
 
-    public boolean putInRemote(String key, Packet value){
+    protected boolean putInRemote(String key, Packet value){
         this.remoteLock.lock();
+        
+        if(!this.hasNext)
+            this.remote.clear();        //clear the map when a new batch of Packets arrives
+        
+        this.hasNext = value.getHasNext();
+
+        if(!this.hasNext)
+            this.cond.signalAll();
+        
         boolean b = this.remote.put(key, value) != null;
         this.remoteLock.unlock();
+        
         return b;
     }
 
@@ -126,24 +217,37 @@ public class FileTracker implements Closeable {
      * Computes the {@link Set} of packets representing the missing files in the peer directory.
      * @return The set of metadata packets
      */
-    public Set<Packet> toSendSet(){
+    protected Set<Packet> toSendSet(){
         this.localLock.lock();
         var localSet = this.local.entrySet();
+        this.remoteLock.lock();
         this.localLock.unlock();
-
+        
         try{
-            this.remoteLock.lock();
-            return localSet.stream().
-                            filter(e -> !this.remote.containsKey(e.getKey())).
-                            map(Entry::getValue).
-                            collect(Collectors.toSet());
+            while(this.hasNext)
+                try{
+                    this.cond.await();
+                } 
+                catch(InterruptedException e){}
+            
+            
+            var ret = localSet.stream().
+                               filter(e -> !this.remote.containsKey(e.getKey())).
+                               map(Entry::getValue).
+                               collect(Collectors.toSet());
+            
+            this.ackLock.lock();
+            this.acks.clear();
+            ret.forEach(p -> this.acks.put(p.getMD5Hash(), new AckTracker()));
+            this.ackLock.unlock();
+            return ret;
         }
         finally{
             this.remoteLock.unlock();
         }
     }
 
-    public List<Packet> toSendMetadataList(){
+    protected List<Packet> toSendMetadataList(){
         this.localLock.lock();
         var localSet = this.local.entrySet();
         this.localLock.unlock();
@@ -152,7 +256,7 @@ public class FileTracker implements Closeable {
                             map(Entry::getValue).
                             collect(Collectors.toList());
 
-        list.sort((p1, p2) -> Boolean.compare(p2.getHasNext(), p1.getHasNext()));
+        list.sort((p1, p2) -> Boolean.compare(p2.getHasNext(), p1.getHasNext())); //false comes last
         return list;
     }
 

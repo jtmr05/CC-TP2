@@ -13,7 +13,7 @@ public class UDP_Listener implements Runnable, AutoCloseable {
     private final File dir;
     private final FileTracker tracker;
     
-    private final UDP_Sender udp_sender;
+    private final UDP_Sender udpSender;
     private final Thread senderThread;
    
     public UDP_Listener(int port, InetAddress address, File dir) throws SocketException {
@@ -23,8 +23,8 @@ public class UDP_Listener implements Runnable, AutoCloseable {
         this.inSocket = new DatagramSocket(this.port);
         this.tracker = new FileTracker(this.dir);
 
-        this.udp_sender = new UDP_Sender(this.address, this.port, this.tracker);
-        (this.senderThread = new Thread(this.udp_sender)).start();
+        this.udpSender = new UDP_Sender(this.address, this.port, this.tracker);
+        (this.senderThread = new Thread(this.udpSender)).start();
     }
 
     @Override
@@ -36,8 +36,9 @@ public class UDP_Listener implements Runnable, AutoCloseable {
             while(true){
                 this.inSocket.receive(inPacket);
                 
-                Thread t2 = new Thread(new UDP_Handler(inPacket, this.dir, address, port, this.tracker));
-                t2.start();
+                this.udpSender.signal();
+                Thread handlerThread = new Thread(new UDP_Handler(inPacket, this.dir, this.tracker));
+                handlerThread.start();
             } 
         }
         catch(IOException e){}
@@ -50,7 +51,7 @@ public class UDP_Listener implements Runnable, AutoCloseable {
     public void close(){
         try{
             this.senderThread.interrupt();
-            this.udp_sender.close();
+            this.udpSender.close();
             this.inSocket.close();
         }
         catch(Exception e){}

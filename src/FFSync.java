@@ -19,13 +19,10 @@ public class FFSync {
                 var tcp_listener = new TCP_Listener(port);
                 var udp_listener = new UDP_Listener(port, address, dir);
 
-                try(udp_listener; tcp_listener){
-                    Thread tcp_thread = new Thread(tcp_listener);
-                    Thread udp_thread = new Thread(udp_listener);
-
-                    tcp_thread.start();
-                    udp_thread.start();
-                }
+                Thread tcp_thread = new Thread(tcp_listener);
+                Thread udp_thread = new Thread(udp_listener);
+                tcp_thread.start();
+                udp_thread.start();
             }
             else
                 System.err.println("Not a directory. Please specify a path to a directory.");

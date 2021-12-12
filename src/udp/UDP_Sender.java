@@ -2,11 +2,12 @@ package udp;
 
 import java.io.*;
 import java.net.*;
+import java.util.ArrayList;
+import java.util.List;
 
 import packet.*;
 import static packet.Consts.*;
 
-import utils.AllChunksReadException;
 import utils.FileChunkReader;
 
 public class UDP_Sender implements Runnable, Closeable {
@@ -50,46 +51,91 @@ public class UDP_Sender implements Runnable, Closeable {
     }
 
     private void sendMetadata(){
-        var toSendMetadataIter = this.tracker.toSendMetadataList().iterator();
+        List<Packet> toSendMetadata = this.tracker.toSendMetadataList();
+        final int size = toSendMetadata.size();
         try{
-            while(toSendMetadataIter.hasNext()){
+            int i = 0;
+            while(i < size){
+                Packet p = toSendMetadata.get(i);
                 try{
-                    var dp = toSendMetadataIter.next().serialize(this.address, this.port);
-                    this.outSocket.send(dp);
-                    while(!this.isAlive)
-                        Thread.sleep(10);
+                    this.outSocket.send(p.serialize(this.address, this.port));
                 }
                 catch(IllegalOpCodeException e){
                     continue;
                 }
+
+                if(this.isAlive)
+                    i++;
+    
+                while(!this.isAlive)
+                    Thread.sleep(10);
             }
         }
         catch(Exception e){}
     }
 
     private void sendData(){
-        var toSendIter = this.tracker.toSendSet().iterator();
-        short seqNum = 0;
-
+        List<Packet> toSendData = new ArrayList<>(this.tracker.toSendSet());
+        final int size = toSendData.size();
+        
         try{
-            while(toSendIter.hasNext()){
-                Packet p = toSendIter.next();
-                var fcr = new FileChunkReader(p.getFilename());
+            for(int i = 0; i++ < size && this.isAlive;){
+                short seqNum = INIT_SEQ_NUMBER;
+                Packet p = toSendData.get(i);
+                FileChunkReader fcr = new FileChunkReader(p.getFilename());
+                int windowSize = 1;
+                String hash = p.getMD5Hash();
                 
-                do{
-                    byte[] data = fcr.nextChunk();
-                    Packet toSend = new Packet(DATA_TRANSFER, seqNum, p.getMD5Hash(), !fcr.isFinished(), data);
-                    seqNum++;
-                    this.outSocket.send(toSend.serialize(this.address, this.port));    
-                } 
-                while(!fcr.isFinished());
+                while((!fcr.isFinished() || !this.tracker.isEmpty(hash)) && this.isAlive){
+                    short curr = this.tracker.getCurrentSequenceNumber(hash);
+                    
+                    if(seqNum == curr)
+                        windowSize *= 2;    
+                    else{
+                        windowSize = 1;
+                        seqNum = curr;
+                    }
+
+                    seqNum = this.send(windowSize, seqNum, hash, fcr);
+                    Thread.sleep(15 * windowSize);   //wait for an ACK
+                }
+                fcr.close();
             }
         }
-        catch(IllegalOpCodeException | IOException | AllChunksReadException e){}
+        catch(Exception e){}
+    }
+
+    private DatagramPacket nextDatagramPacket(String hash, short seqNum, FileChunkReader fcr){
+        var p = this.tracker.getCachedPacket(hash, seqNum);
+        
+        if(p == null){
+            byte[] data = fcr.nextChunk();
+            p = new Packet(DATA_TRANSFER, seqNum, hash, !fcr.isFinished(), data);
+            this.tracker.addToSent(hash, seqNum, p);
+        }
+        
+        DatagramPacket dp = null;
+            try{
+                dp = p.serialize(this.address, this.port);
+            }
+            catch(IllegalOpCodeException e){}
+        return dp;
+    }
+
+    private short send(int windowSize, short seqNum, String hash, FileChunkReader fcr) throws IOException {
+        for(int j = 0; j++ < windowSize && !fcr.isFinished(); seqNum++){
+            var dp = this.nextDatagramPacket(hash, seqNum, fcr);
+            this.outSocket.send(dp);
+        }
+        return seqNum;
     }
 
     protected void signal(){
         this.isAlive = true;
+    }
+
+    protected void interrupt(){
+        this.isAlive = false;
     }
 
     @Override
