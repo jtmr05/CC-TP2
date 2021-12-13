@@ -39,7 +39,7 @@ public class UDP_Listener implements Runnable, AutoCloseable {
                 this.udpSender.signal();
                 Thread handlerThread = new Thread(new UDP_Handler(inPacket, this.dir, this.tracker));
                 handlerThread.start();
-            } 
+            }
         }
         catch(IOException e){}
         finally{

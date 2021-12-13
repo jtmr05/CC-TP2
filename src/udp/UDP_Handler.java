@@ -44,22 +44,37 @@ public class UDP_Handler implements Runnable {
                             String dirPath = this.dir.getAbsolutePath();
                             String filePath = new StringBuilder(dirPath).append("/").append(filename).toString();
                             fcw = FileChunkWriter.factory(filePath, this.tracker.getRemoteCreationTime(key));
-                        }
-                        if(fcw != null){
                             this.map.put(key, fcw);
-                            int off = p.getSequenceNumber() - INIT_SEQ_NUMBER;
-                            fcw.writeChunk(p.getData(), off);
+                        }
+
+                        short seqNum = p.getSequenceNumber();
+                        int off = (seqNum - INIT_SEQ_NUMBER) * DATA_SIZE;
+                        fcw.writeChunk(p.getData(), off);
+                        this.sendAck(new Packet(ACK, seqNum, key));
+                        
+                        if(!p.getHasNext() && fcw.isEmpty()){
+                            this.map.remove(key);
+                            fcw.close();
                         }
                     }
                     catch(IOException e){}
                 }
 
-                case ACK -> 
+                case ACK -> {
+                    RTT.add(p.getTimestamp());
                     this.tracker.ack(key, p.getSequenceNumber());
+                }
 
                 default -> {}
             }
         }
         catch (IllegalOpCodeException e){} //ignore any other opcode
+    }
+
+
+    private void sendAck(Packet p) throws IOException, IllegalOpCodeException {
+        var ds = new DatagramSocket();
+        ds.send(p.serialize(this.received.getAddress(), this.received.getPort()));
+        ds.close();
     }
 }

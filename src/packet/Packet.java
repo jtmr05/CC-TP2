@@ -27,10 +27,13 @@ public class Packet {
     private final String filename;
     /** The raw data being sent/received*/
     private final byte[] data;
+    /** Timestamp used to calculate RTT */
+    private final long timestamp;
 
 
     //FILE_META
-    public Packet(byte opcode, String md5hash, long lastUpdated, long creationDate, String filename, boolean hasNext){
+    public Packet(byte opcode, String md5hash, long lastUpdated, long creationDate, String filename, 
+                  boolean hasNext){
         this.opcode = opcode;
         this.md5hash = md5hash;
         this.lastUpdated = lastUpdated;
@@ -38,7 +41,7 @@ public class Packet {
         this.hasNext = hasNext;
         this.filename = filename;
 
-        this.sequenceNumber = -1; 
+        this.timestamp = this.sequenceNumber = -1;
         this.data = null;
     }
 
@@ -50,15 +53,27 @@ public class Packet {
         this.hasNext = hasNext;
         this.data = data;
 
-        this.lastUpdated = this.creationDate = -1;
+        this.lastUpdated = this.creationDate = this.timestamp = -1;
         this.filename = null;
     }
 
     //ACK
+    public Packet(byte opcode, short sequenceNumber, String md5hash, long timestamp){
+        this.opcode = opcode;
+        this.sequenceNumber = sequenceNumber;
+        this.md5hash = md5hash;
+        this.timestamp = timestamp;
+
+        this.lastUpdated = this.creationDate = -1;
+        this.hasNext = false;
+        this.filename = (String) (Object) (this.data = null);
+    }
+
     public Packet(byte opcode, short sequenceNumber, String md5hash){
         this.opcode = opcode;
         this.sequenceNumber = sequenceNumber;
         this.md5hash = md5hash;
+        this.timestamp = System.currentTimeMillis();
 
         this.lastUpdated = this.creationDate = -1;
         this.hasNext = false;
@@ -97,6 +112,10 @@ public class Packet {
         byte[] ret = new byte[this.data.length];
         System.arraycopy(this.data, 0, ret, 0, ret.length);
         return ret;
+    }
+
+    public long getTimestamp(){
+        return this.timestamp;
     }
 
     /**
@@ -176,8 +195,13 @@ public class Packet {
 
                 byte[] md5hash = new byte[HASH_SIZE];
                 System.arraycopy(data, pos, md5hash, 0, md5hash.length);
+                pos += md5hash.length;
+
+                byte[] timestamp = new byte[TIMESTAMP_SIZE];
+                System.arraycopy(data, pos, timestamp, 0, timestamp.length);
                 
-                p = new Packet(ACK, u.bytesToShort(seqNum), new String(md5hash, UTF_8));
+                p = new Packet(ACK, u.bytesToShort(seqNum), new String(md5hash, UTF_8), 
+                               u.bytesToLong(timestamp));
             }
             
             default ->
@@ -267,6 +291,10 @@ public class Packet {
                 byte[] hash = this.md5hash.getBytes(UTF_8);
                 System.arraycopy(hash, 0, data, pos, hash.length);
                 pos += hash.length;
+
+                byte[] timestamp = u.longToBytes(this.timestamp);
+                System.arraycopy(timestamp, 0, data, pos, timestamp.length);
+                pos += timestamp.length;
 
                 Arrays.fill(data, pos, data.length, (byte) 0);
             }

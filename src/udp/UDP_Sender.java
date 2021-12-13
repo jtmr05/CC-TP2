@@ -7,6 +7,7 @@ import java.util.List;
 
 import packet.*;
 import static packet.Consts.*;
+import static udp.RTT.*;
 
 import utils.FileChunkReader;
 
@@ -18,7 +19,7 @@ public class UDP_Sender implements Runnable, Closeable {
     private final FileTracker tracker;
     private boolean isAlive;
 
-    protected UDP_Sender(InetAddress address, int port, FileTracker tracker, boolean isAlive) 
+    protected UDP_Sender(InetAddress address, int port, FileTracker tracker, boolean isAlive)
               throws SocketException {
         this.outSocket = new DatagramSocket();
         this.address = address;
@@ -34,7 +35,7 @@ public class UDP_Sender implements Runnable, Closeable {
     @Override
     public void run(){
         try{
-            final int stride = 10, millis = SECONDS_OF_SLEEP * 1000;
+            final int stride = 10, millis = MILLIS_OF_SLEEP;
             int i = 0;
             while(!Thread.interrupted()){
                 if(i == 0){
@@ -66,9 +67,8 @@ public class UDP_Sender implements Runnable, Closeable {
 
                 if(this.isAlive)
                     i++;
-    
-                while(!this.isAlive)
-                    Thread.sleep(10);
+                else
+                    this.timeout();
             }
         }
         catch(Exception e){}
@@ -77,49 +77,42 @@ public class UDP_Sender implements Runnable, Closeable {
     private void sendData(){
         List<Packet> toSendData = new ArrayList<>(this.tracker.toSendSet());
         final int size = toSendData.size();
-        
+
         try{
-            for(int i = 0; i++ < size && this.isAlive;){
+            for(int i = 0; i++ < size;){
                 short seqNum = INIT_SEQ_NUMBER;
                 Packet p = toSendData.get(i);
                 FileChunkReader fcr = new FileChunkReader(p.getFilename());
                 int windowSize = 1;
                 String hash = p.getMD5Hash();
-                
-                while((!fcr.isFinished() || !this.tracker.isEmpty(hash)) && this.isAlive){
+                int numOfTries = 0;
+
+                while(!fcr.isFinished() || !this.tracker.isEmpty(hash)){
+                    this.timeout();
                     short curr = this.tracker.getCurrentSequenceNumber(hash);
-                    
-                    if(seqNum == curr)
-                        windowSize *= 2;    
+
+                    if(seqNum == curr){
+                        windowSize *= 2;
+                        numOfTries = 0;
+                    }
                     else{
                         windowSize = 1;
                         seqNum = curr;
                     }
 
                     seqNum = this.send(windowSize, seqNum, hash, fcr);
-                    Thread.sleep(15 * windowSize);   //wait for an ACK
+                    numOfTries++;
+                    Thread.sleep(ESTIMATED_RTT * windowSize);   //wait for ACKs
+
+                    if(numOfTries == 3){
+                        this.interrupt();
+                        numOfTries = 0;
+                    }
                 }
                 fcr.close();
             }
         }
         catch(Exception e){}
-    }
-
-    private DatagramPacket nextDatagramPacket(String hash, short seqNum, FileChunkReader fcr){
-        var p = this.tracker.getCachedPacket(hash, seqNum);
-        
-        if(p == null){
-            byte[] data = fcr.nextChunk();
-            p = new Packet(DATA_TRANSFER, seqNum, hash, !fcr.isFinished(), data);
-            this.tracker.addToSent(hash, seqNum, p);
-        }
-        
-        DatagramPacket dp = null;
-            try{
-                dp = p.serialize(this.address, this.port);
-            }
-            catch(IllegalOpCodeException e){}
-        return dp;
     }
 
     private short send(int windowSize, short seqNum, String hash, FileChunkReader fcr) throws IOException {
@@ -130,16 +123,41 @@ public class UDP_Sender implements Runnable, Closeable {
         return seqNum;
     }
 
+    private DatagramPacket nextDatagramPacket(String hash, short seqNum, FileChunkReader fcr){
+        var p = this.tracker.getCachedPacket(hash, seqNum);
+
+        if(p == null){
+            byte[] data = fcr.nextChunk();
+            p = new Packet(DATA_TRANSFER, seqNum, hash, !fcr.isFinished(), data);
+            this.tracker.addToSent(hash, seqNum, p);
+        }
+
+        DatagramPacket dp = null;
+            try{
+                dp = p.serialize(this.address, this.port);
+            }
+            catch(IllegalOpCodeException e){}
+        return dp;
+    }
+
     protected void signal(){
         this.isAlive = true;
     }
 
-    protected void interrupt(){
+    private void interrupt(){
         this.isAlive = false;
+    }
+
+    private void timeout(){
+        while(!this.isAlive)
+            try{
+                Thread.sleep(10);
+            }
+            catch(InterruptedException e){}
     }
 
     @Override
     public void close() throws IOException {
-        this.outSocket.close();   
+        this.outSocket.close();
     }
 }
