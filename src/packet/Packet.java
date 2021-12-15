@@ -10,7 +10,7 @@ import static packet.Consts.*;
 import utils.*;
 
 public class Packet {
-    
+
     /** The operation code as defined in {@linkplain Consts} */
     private final byte opcode;
     /** md5 hash produced from the file's metadata (CreationDate and Filename) */
@@ -32,7 +32,7 @@ public class Packet {
 
 
     //FILE_META
-    public Packet(byte opcode, String md5hash, long lastUpdated, long creationDate, String filename, 
+    public Packet(byte opcode, String md5hash, long lastUpdated, long creationDate, String filename,
                   boolean hasNext){
         this.opcode = opcode;
         this.md5hash = md5hash;
@@ -82,7 +82,7 @@ public class Packet {
 
     public byte getOpcode(){
         return this.opcode;
-    } 
+    }
 
     public String getMD5Hash(){
         return this.md5hash;
@@ -90,8 +90,8 @@ public class Packet {
 
     public long getLastUpdated(){
         return this.lastUpdated;
-    }   
-    
+    }
+
     public long getCreationDate(){
         return this.creationDate;
     }
@@ -121,11 +121,11 @@ public class Packet {
     /**
      * Returns a new packet from the given {@code dp}.
      *
-     * @param   dp  
+     * @param   dp
      *          The DatagramPacket to read data from
-     * 
+     *
      * @return  The new Packet instance
-     * 
+     *
      * @throws  IllegalOpCodeException
      *          If the read op code is unknown
      */
@@ -137,7 +137,7 @@ public class Packet {
         Utils u = new Utils();
 
         switch (data[0]){
-                
+
             case FILE_META -> {
                 byte[] md5hash = new byte[HASH_SIZE];
                 System.arraycopy(data, pos, md5hash, 0, md5hash.length);
@@ -161,10 +161,10 @@ public class Packet {
 
                 boolean hasNext = data[pos] != 0;
 
-                p = new Packet(FILE_META, new String(md5hash, UTF_8), u.bytesToLong(lastUpdated), 
+                p = new Packet(FILE_META, new String(md5hash, UTF_8), u.bytesToLong(lastUpdated),
                                u.bytesToLong(creationDate), new String(filename, UTF_8), hasNext);
             }
-            
+
             case DATA_TRANSFER -> {
                 byte[] seqNum = new byte[SEQ_NUM_SIZE];
                 System.arraycopy(data, pos, seqNum, 0, seqNum.length);
@@ -184,10 +184,10 @@ public class Packet {
                 byte[] data__ = new byte[u.bytesToInt(dataSize)];
                 System.arraycopy(data, pos, data__, 0, data__.length);
 
-                p = new Packet(DATA_TRANSFER, u.bytesToShort(seqNum), new String(md5hash, UTF_8), 
+                p = new Packet(DATA_TRANSFER, u.bytesToShort(seqNum), new String(md5hash, UTF_8),
                                hasNext, data__);
-            } 
-                
+            }
+
             case ACK -> {
                 byte[] seqNum = new byte[SEQ_NUM_SIZE];
                 System.arraycopy(data, pos, seqNum, 0, seqNum.length);
@@ -199,11 +199,11 @@ public class Packet {
 
                 byte[] timestamp = new byte[TIMESTAMP_SIZE];
                 System.arraycopy(data, pos, timestamp, 0, timestamp.length);
-                
-                p = new Packet(ACK, u.bytesToShort(seqNum), new String(md5hash, UTF_8), 
+
+                p = new Packet(ACK, u.bytesToShort(seqNum), new String(md5hash, UTF_8),
                                u.bytesToLong(timestamp));
             }
-            
+
             default ->
                 throw new IllegalOpCodeException();
         }
@@ -212,19 +212,19 @@ public class Packet {
 
     /**
      * Produces a new datagram packet from this object.
-     *  
-     * @param   ip    
+     *
+     * @param   ip
      *          The destination address
-     * @param   port  
+     * @param   port
      *          The destination port number
-     * 
+     *
      * @return  The new datagram packet
-     * 
+     *
      * @throws  IllegalOpCodeException
      *          If this object's {@code opcode} is unknown
      */
     public DatagramPacket serialize(InetAddress ip, int port) throws IllegalOpCodeException {
-        
+
         byte[] data = new byte[MAX_PACKET_SIZE];
         data[0] = this.opcode;
         int pos = 1;
@@ -233,7 +233,7 @@ public class Packet {
         switch(this.opcode){
 
             case FILE_META -> {
-                
+
                 byte[] strToBytes = this.md5hash.getBytes(UTF_8);
                 System.arraycopy(strToBytes, 0, data, pos, this.md5hash.length());
                 pos += this.md5hash.length();
@@ -276,7 +276,7 @@ public class Packet {
                 byte[] shortBytes_ = u.intToBytes(this.data.length);
                 System.arraycopy(shortBytes_, 0, data, pos, shortBytes_.length);
                 pos += shortBytes_.length;
-                
+
                 System.arraycopy(this.data, 0, data, pos, this.data.length);
                 pos += this.data.length;
 

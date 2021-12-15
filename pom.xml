@@ -67,10 +67,24 @@
           <artifactId>maven-project-info-reports-plugin</artifactId>
           <version>3.0.0</version>
         </plugin>
+
+        <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>2.4</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>FFSync</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
+        </plugin>
+
       </plugins>
     </pluginManagement>
 
-    <sourceDirectory> ${basedir}/src</sourceDirectory> 
+    <sourceDirectory> ${basedir}/src</sourceDirectory>
     <testSourceDirectory>${basedir}/test</testSourceDirectory>
 
   </build>

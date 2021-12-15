@@ -4,6 +4,7 @@ import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.locks.*;
 
 import packet.*;
 import static packet.Consts.*;
@@ -15,21 +16,21 @@ public class UDP_Sender implements Runnable, Closeable {
 
     private final DatagramSocket outSocket;
     private final InetAddress address;
-    private final int port;
     private final FileTracker tracker;
     private boolean isAlive;
+    private final Lock lock;
 
-    protected UDP_Sender(InetAddress address, int port, FileTracker tracker, boolean isAlive)
+    protected UDP_Sender(InetAddress address, FileTracker tracker, boolean isAlive)
               throws SocketException {
         this.outSocket = new DatagramSocket();
         this.address = address;
-        this.port = port;
         this.tracker = tracker;
         this.isAlive = isAlive;
+        this.lock = new ReentrantLock();
     }
 
-    protected UDP_Sender(InetAddress address, int port, FileTracker tracker) throws SocketException {
-        this(address, port, tracker, false);
+    protected UDP_Sender(InetAddress address, FileTracker tracker) throws SocketException {
+        this(address, tracker, false);
     }
 
     @Override
@@ -59,7 +60,7 @@ public class UDP_Sender implements Runnable, Closeable {
             while(i < size){
                 Packet p = toSendMetadata.get(i);
                 try{
-                    this.outSocket.send(p.serialize(this.address, this.port));
+                    this.outSocket.send(p.serialize(this.address, Ports.get()));
                 }
                 catch(IllegalOpCodeException e){
                     continue;
@@ -134,18 +135,22 @@ public class UDP_Sender implements Runnable, Closeable {
 
         DatagramPacket dp = null;
             try{
-                dp = p.serialize(this.address, this.port);
+                dp = p.serialize(this.address, Ports.get());
             }
             catch(IllegalOpCodeException e){}
         return dp;
     }
 
     protected void signal(){
+        this.lock.lock();
         this.isAlive = true;
+        this.lock.unlock();
     }
 
     private void interrupt(){
+        this.lock.lock();
         this.isAlive = false;
+        this.lock.unlock();
     }
 
     private void timeout(){

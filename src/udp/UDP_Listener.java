@@ -6,16 +6,16 @@ import java.io.*;
 import static packet.Consts.*;
 
 public class UDP_Listener implements Runnable, AutoCloseable {
-    
+
     private final int port;
     private final InetAddress address;
     private final DatagramSocket inSocket;
     private final File dir;
     private final FileTracker tracker;
-    
+
     private final UDP_Sender udpSender;
     private final Thread senderThread;
-   
+
     public UDP_Listener(int port, InetAddress address, File dir) throws SocketException {
         this.port = port;
         this.address = address;
@@ -23,7 +23,7 @@ public class UDP_Listener implements Runnable, AutoCloseable {
         this.inSocket = new DatagramSocket(this.port);
         this.tracker = new FileTracker(this.dir);
 
-        this.udpSender = new UDP_Sender(this.address, this.port, this.tracker);
+        this.udpSender = new UDP_Sender(this.address, this.tracker);
         (this.senderThread = new Thread(this.udpSender)).start();
     }
 
@@ -31,14 +31,16 @@ public class UDP_Listener implements Runnable, AutoCloseable {
     public void run(){
         byte[] buffer = new byte[MAX_PACKET_SIZE];
         DatagramPacket inPacket = new DatagramPacket(buffer, buffer.length);
-        
+
         try{
             while(true){
                 this.inSocket.receive(inPacket);
-                
-                this.udpSender.signal();
+
                 Thread handlerThread = new Thread(new UDP_Handler(inPacket, this.dir, this.tracker));
                 handlerThread.start();
+
+                this.udpSender.signal(); //it's important that the received packet is treated
+                                         //before signaling the sender
             }
         }
         catch(IOException e){}
