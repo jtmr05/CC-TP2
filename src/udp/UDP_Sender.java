@@ -80,7 +80,7 @@ public class UDP_Sender implements Runnable, Closeable {
         final int size = toSendData.size();
 
         try{
-            for(int i = 0; i++ < size;){
+            for(int i = 0; i < size; i++){
                 short seqNum = INIT_SEQ_NUMBER;
                 Packet p = toSendData.get(i);
                 FileChunkReader fcr = new FileChunkReader(p.getFilename());
@@ -88,7 +88,7 @@ public class UDP_Sender implements Runnable, Closeable {
                 String hash = p.getMD5Hash();
                 int numOfTries = 0;
 
-                while(!fcr.isFinished() || !this.tracker.isEmpty(hash)){
+                while((!fcr.isFinished()) || (!this.tracker.isEmpty(hash))){
                     this.timeout();
                     short curr = this.tracker.getCurrentSequenceNumber(hash);
 
@@ -117,9 +117,10 @@ public class UDP_Sender implements Runnable, Closeable {
     }
 
     private short send(int windowSize, short seqNum, String hash, FileChunkReader fcr) throws IOException {
-        for(int j = 0; j++ < windowSize && !fcr.isFinished(); seqNum++){
+        for(int j = 0; j < windowSize && !fcr.isFinished(); j++){
             var dp = this.nextDatagramPacket(hash, seqNum, fcr);
             this.outSocket.send(dp);
+            seqNum++;
         }
         return seqNum;
     }

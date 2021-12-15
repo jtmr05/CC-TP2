@@ -6,7 +6,7 @@ public final class RTT {
 
     private RTT(){}
 
-    protected static final int MILLIS_OF_SLEEP = 30000; //30s
+    protected static final int MILLIS_OF_SLEEP = 10000; //30s
 
     private static final Lock lock = new ReentrantLock();
     private static long RTT_SUM = 0;

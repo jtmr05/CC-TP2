@@ -231,9 +231,9 @@ public class FileTracker implements Closeable {
 
             //filenames in the peer directory
             var remFilenames = this.remote.entrySet().
-                                        stream().
-                                        map(e -> e.getValue().getFilename()).
-                                        collect(Collectors.toCollection(HashSet::new));
+                                           stream().
+                                           map(e -> e.getValue().getFilename()).
+                                           collect(Collectors.toCollection(HashSet::new));
 
             //if there are matching names, most recent one wins
             Predicate<Packet> predicate = p -> {
@@ -253,6 +253,7 @@ public class FileTracker implements Closeable {
                                collect(Collectors.toCollection(HashSet::new));
 
             this.ackLock.lock();
+            this.remoteLock.unlock();
             this.acks.clear();
             ret.forEach(p -> this.acks.put(p.getMD5Hash(), new AckTracker()));
             this.ackLock.unlock();
@@ -260,9 +261,6 @@ public class FileTracker implements Closeable {
         }
         catch(InterruptedException e){
             return null;
-        }
-        finally{
-            this.remoteLock.unlock();
         }
     }
 
