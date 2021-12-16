@@ -78,7 +78,7 @@ public class UDP_Handler implements Runnable {
 
 
     private void sendAck(Packet p) throws IOException, IllegalOpCodeException {
-        var ds = new DatagramSocket(this.localPort);
+        var ds = new DatagramSocket();
         ds.send(p.serialize(this.received.getAddress(), this.received.getPort()));
         ds.close();
     }

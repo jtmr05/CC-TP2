@@ -45,8 +45,10 @@ public class FileTracker implements Closeable {
                 final int stride = 10, millis = MILLIS_OF_SLEEP;
                 int i = 0;
                 while(!Thread.interrupted()){
-                    if(i == 0)
+                    if(i == 0){
+                        System.out.println("populating...");
                         FileTracker.this.populate();
+                    }
                     i += stride;
                     if(i >= millis)
                         i = 0;

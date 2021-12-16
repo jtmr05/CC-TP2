@@ -24,7 +24,7 @@ public class UDP_Listener implements Runnable, Closeable {
         this.dir = dir;
         this.inSocket = new DatagramSocket(this.localPort);
         this.tracker = tracker;
-        this.udpSender = new UDP_Sender(this.address, this.peerPort, this.tracker);
+        this.udpSender = new UDP_Sender(this.address, this.peerPort, this.tracker, this.dir);
         (this.senderThread = new Thread(this.udpSender)).start();
     }
 

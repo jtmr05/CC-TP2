@@ -14,7 +14,7 @@ public class TCP_Listener implements Runnable, Closeable {
 
     public TCP_Listener(int port, File path, FileTracker f) throws IOException {
         this.port = port;
-        this.server_socket = new ServerSocket(port);
+        this.server_socket = new ServerSocket(this.port);
         this.path = path;
         this.f = f;
     }
@@ -23,7 +23,7 @@ public class TCP_Listener implements Runnable, Closeable {
     public void run(){
 
         try{
-            System.out.println("listening on port: "+port);
+            //System.out.println("listening on port: "+port);
 
             while(true){
                 Socket socket = this.server_socket.accept();

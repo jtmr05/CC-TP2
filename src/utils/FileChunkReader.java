@@ -5,12 +5,13 @@ import java.io.*;
 import static packet.Consts.*;
 
 public class FileChunkReader implements Closeable {
-    
+
     private final BufferedInputStream reader;
     private boolean finished;
 
-    public FileChunkReader(String filename) throws FileNotFoundException {
-        this.reader = new BufferedInputStream(new FileInputStream(new File(filename)));
+    public FileChunkReader(String filename, File dir) throws FileNotFoundException {
+        String path = dir.getAbsolutePath()+"/"+filename;
+        this.reader = new BufferedInputStream(new FileInputStream(new File(path)));
         this.finished = false;
     }
 
@@ -23,18 +24,20 @@ public class FileChunkReader implements Closeable {
             byte[] data, buffer = new byte[DATA_SIZE];
             try{
                 final int bread = this.reader.read(buffer);
-                
-                if(bread != -1)
+
+                if(bread != -1){
                     if(bread < DATA_SIZE){
                         data = new byte[bread];
-                        System.arraycopy(buffer, 0, data, 0, bread); 
+                        System.arraycopy(buffer, 0, data, 0, bread);
                     }
                     else
                         data = buffer;
+                    System.out.println("\there's a chunk :3 with size "+data.length);
+                }
                 else
                     data = null;
-                
-                this.finished = bread < buffer.length;
+
+                this.finished = bread < DATA_SIZE;
             }
             catch(IOException e){
                 data = null;
@@ -58,7 +61,7 @@ public class FileChunkReader implements Closeable {
 /**
  *     public byte[] indexedChunk(int off){
 
-        
+
         byte[] data, buffer = new byte[DATA_SIZE];
         try{
             this.reader.seek(off);
@@ -67,7 +70,7 @@ public class FileChunkReader implements Closeable {
             if(bread != -1){
                 if(bread < DATA_SIZE){
                     data = new byte[bread];
-                    System.arraycopy(buffer, 0, data, 0, bread); 
+                    System.arraycopy(buffer, 0, data, 0, bread);
                 }
                 else
                     data = buffer;

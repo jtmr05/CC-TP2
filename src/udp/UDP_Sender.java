@@ -2,7 +2,7 @@ package udp;
 
 import java.io.*;
 import java.net.*;
-import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.locks.*;
 
@@ -18,21 +18,23 @@ public class UDP_Sender implements Runnable, Closeable {
     private final InetAddress address;
     private final int peerPort;
     private final FileTracker tracker;
+    private final File dir;
     private boolean isAlive;
     private final Lock lock;
 
-    protected UDP_Sender(InetAddress address, int peerPort, FileTracker tracker, boolean isAlive)
+    protected UDP_Sender(InetAddress address, int peerPort, FileTracker tracker, File dir, boolean isAlive)
               throws SocketException {
         this.outSocket = new DatagramSocket();
         this.address = address;
         this.peerPort = peerPort;
         this.tracker = tracker;
+        this.dir = dir;
         this.isAlive = isAlive;
         this.lock = new ReentrantLock();
     }
 
-    protected UDP_Sender(InetAddress address, int peerPort, FileTracker tracker) throws SocketException {
-        this(address, peerPort, tracker, false);
+    protected UDP_Sender(InetAddress address, int peerPort, FileTracker tracker, File dir) throws SocketException {
+        this(address, peerPort, tracker, dir, false);
     }
 
     @Override
@@ -55,12 +57,14 @@ public class UDP_Sender implements Runnable, Closeable {
     }
 
     private void sendMetadata(){//ter os envios dos metadados no log???
+        System.out.println("about to start to send metadata");
         List<Packet> toSendMetadata = this.tracker.toSendMetadataList();
         final int size = toSendMetadata.size();
         try{
             int i = 0;
             while(i < size){
                 Packet p = toSendMetadata.get(i);
+                System.out.println("\t"+p.getMD5Hash());
                 try{
                     this.outSocket.send(p.serialize(this.address, this.peerPort));
                 }
@@ -78,17 +82,20 @@ public class UDP_Sender implements Runnable, Closeable {
     }
 
     private void sendData(){
-        List<Packet> toSendData = new ArrayList<>(this.tracker.toSendSet());
+        List<Packet> toSendData = new LinkedList<>(this.tracker.toSendSet());
         final int size = toSendData.size();
+        System.out.println("about to start to send data ("+size+" item(s))");
 
         try{
             for(int i = 0; i < size; i++){
                 short seqNum = INIT_SEQ_NUMBER;
-                Packet p = toSendData.get(i);
+                Packet p = toSendData.get(0);
+                toSendData.remove(0);
                 String filename = p.getFilename();
-                FileChunkReader fcr = new FileChunkReader(filename);
+                FileChunkReader fcr = new FileChunkReader(filename, this.dir);
                 int windowSize = 1;
                 String hash = p.getMD5Hash();
+                System.out.println("\t"+hash);
                 int numOfTries = 0;
 
                 while((!fcr.isFinished()) || (!this.tracker.isEmpty(hash))){
@@ -105,6 +112,7 @@ public class UDP_Sender implements Runnable, Closeable {
                     }
 
                     seqNum = this.send(windowSize, seqNum, hash, fcr);
+                    System.out.println("sending "+hash+" packet with "+seqNum);
                     numOfTries++;
                     Thread.sleep(ESTIMATED_RTT * windowSize);   //wait for ACKs
 
@@ -117,7 +125,10 @@ public class UDP_Sender implements Runnable, Closeable {
                 this.tracker.log(filename + " foi enviado com sucesso");
             }
         }
-        catch(Exception e){}
+        catch(Exception e){
+            if(e instanceof FileNotFoundException)
+                System.out.println("\texececao :/");
+        }
     }
 
     private short send(int windowSize, short seqNum, String hash, FileChunkReader fcr) throws IOException {
@@ -159,11 +170,13 @@ public class UDP_Sender implements Runnable, Closeable {
     }
 
     private void timeout(){
+        System.out.println("zzzz...");
         while(!this.isAlive)
             try{
                 Thread.sleep(10);
             }
             catch(InterruptedException e){}
+        System.out.println("woke up wwoooooooOOOOO");
     }
 
     @Override
