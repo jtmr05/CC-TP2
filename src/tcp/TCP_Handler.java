@@ -2,8 +2,7 @@ package tcp;
 
 import java.io.*;
 import java.net.Socket;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.Date;
 
 import packet.Packet;
@@ -40,7 +39,8 @@ public class TCP_Handler implements Runnable {
                 System.out.println("\n"+"\n"+argumentos.toString()+"\n"+"\n");
                 switch (argumentos[1]) {
                     case "/":
-                        String protocolDescription = u.readProtocol(Paths.get("../utils/ProtocolDescription"));//Files.readString("../utils/ProtocolDescription");
+                        
+                        String protocolDescription = u.readProtocol();///home/diogobarbosa/3º ano/CC/CC-TP2/src/utils/ProtocolDescription.txt
                         
                         body.append("<html><title>FFSync</title><span>");
                         body.append(protocolDescription);

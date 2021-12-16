@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class Utils {
 
@@ -48,8 +49,8 @@ public class Utils {
         return buffer.array();
     }
 
-    public String readProtocol(Path path) throws IOException{
-        return Files.readString(path);
+    public String readProtocol() throws IOException{
+        return Files.readString(Paths.get("src/utils/ProtocolDescription.txt"));
     }
 
 }
