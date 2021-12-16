@@ -10,8 +10,8 @@ import utils.*;
 import static packet.Consts.*;
 
 /** Handles the received {@linkplain DatagramPacket}. */
-public class UDP_Handler implements Runnable { 
-    
+public class UDP_Handler implements Runnable {
+
     private final DatagramPacket received;
     private final File dir;
     private final FileTracker tracker;
@@ -26,14 +26,14 @@ public class UDP_Handler implements Runnable {
 
     @Override
     public void run(){
-        
+
         try{
             Packet p = Packet.deserialize(this.received);
             String key = p.getMD5Hash();
-            
+
             switch(p.getOpcode()){
 
-                case FILE_META -> 
+                case FILE_META ->
                     this.tracker.putInRemote(key, p);
 
                 case DATA_TRANSFER -> {
@@ -57,8 +57,10 @@ public class UDP_Handler implements Runnable {
                     catch(IOException e){}
                 }
 
-                case ACK -> 
+                case ACK -> {
+                    RTT.add(p.getTimestamp());
                     this.tracker.ack(key, p.getSequenceNumber());
+                }
 
                 default -> {}
             }
@@ -66,5 +68,12 @@ public class UDP_Handler implements Runnable {
         catch (IllegalOpCodeException e){
 
         } //ignore any other opcode
+    }
+
+
+    private void sendAck(Packet p) throws IOException, IllegalOpCodeException {
+        var ds = new DatagramSocket();
+        ds.send(p.serialize(this.received.getAddress(), this.received.getPort()));
+        ds.close();
     }
 }

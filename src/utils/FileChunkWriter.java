@@ -19,21 +19,14 @@ public class FileChunkWriter implements Closeable {
 
     public static FileChunkWriter factory(String filename, long remoteCreationDate) throws IOException {
         File f = new File(filename);
-        FileChunkWriter fcw = null;
 
-        if(f.exists()){
-            var meta = Files.readAttributes(f.toPath(), BasicFileAttributes.class);
-            long localCreationDate = meta.creationTime().toMillis();
-            if(remoteCreationDate > localCreationDate)     //most recent wins
-                fcw = new FileChunkWriter(f);
-        }
-        else{
+        if(!f.exists())
             f.createNewFile();
-            Files.getFileAttributeView(f.toPath(), BasicFileAttributeView.class).
-                  setTimes(null, null, FileTime.fromMillis(remoteCreationDate)); 
-            fcw = new FileChunkWriter(f);
-        }
-        return fcw;
+
+        Files.getFileAttributeView(f.toPath(), BasicFileAttributeView.class).
+              setTimes(null, null, FileTime.fromMillis(remoteCreationDate)); 
+        
+        return new FileChunkWriter(f);
     }
 
     public void writeChunk(byte[] data, int off) throws IOException {
@@ -50,6 +43,10 @@ public class FileChunkWriter implements Closeable {
         }
         else
             this.map.put(off, data);   
+    }
+
+    public boolean isEmpty(){
+        return this.map.isEmpty();
     }
 
     @Override

@@ -14,7 +14,7 @@ public class FFSync {
             File dir = new File(path);
 
             if(dir.isDirectory()){
-                int port = Integer.parseInt(args[1]); 
+                int port = Integer.parseInt(args[1]);
                 InetAddress address = InetAddress.getByName(args[2]);
                 FileTracker f = new FileTracker(dir);
                 var tcp_listener = new TCP_Listener(port,dir,f);
@@ -22,7 +22,6 @@ public class FFSync {
 
                 Thread tcp_thread = new Thread(tcp_listener);
                 Thread udp_thread = new Thread(udp_listener);
-                
                 tcp_thread.start();
                 udp_thread.start();
             }
