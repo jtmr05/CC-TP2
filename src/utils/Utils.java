@@ -1,9 +1,7 @@
 package utils;
 
-import java.io.IOException;
+import java.io.*;
 import java.nio.ByteBuffer;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -52,21 +50,16 @@ public class Utils {
         return buffer.array();
     }
 
-    public String readProtocol() throws IOException {
-        return Files.readString(Paths.get(PROTOCOL_PATH), UTF_8);
-    }
-
-    /*
     public String readProtocol() throws IOException{
         BufferedReader br = new BufferedReader(new FileReader(PROTOCOL_PATH, UTF_8));
         String temp;
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder(br.readLine());
+
 
         while((temp = br.readLine()) != null)
-            sb.append(temp).append("\n");
+            sb.append("\r\n").append(temp);
 
         br.close();
         return sb.toString();
     }
-    */
 }

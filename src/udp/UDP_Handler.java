@@ -16,14 +16,14 @@ public class UDP_Handler implements Runnable {
     private final File dir;
     private final FileTracker tracker;
     private final Map<String, FileChunkWriter> map;
-    private final int port;
+    private final int localPort;
 
-    protected UDP_Handler(DatagramPacket received, File dir, FileTracker tracker, int port){
+    protected UDP_Handler(DatagramPacket received, File dir, FileTracker tracker, int localPort){
         this.received = received;
         this.dir = dir;
         this.tracker = tracker;
         this.map = new HashMap<>();
-        this.port = port;
+        this.localPort = localPort;
     }
 
     @Override
@@ -78,7 +78,7 @@ public class UDP_Handler implements Runnable {
 
 
     private void sendAck(Packet p) throws IOException, IllegalOpCodeException {
-        var ds = new DatagramSocket(this.port);
+        var ds = new DatagramSocket(this.localPort);
         ds.send(p.serialize(this.received.getAddress(), this.received.getPort()));
         ds.close();
     }

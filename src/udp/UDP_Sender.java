@@ -16,23 +16,23 @@ public class UDP_Sender implements Runnable, Closeable {
 
     private final DatagramSocket outSocket;
     private final InetAddress address;
-    private final int port;
+    private final int peerPort;
     private final FileTracker tracker;
     private boolean isAlive;
     private final Lock lock;
 
-    protected UDP_Sender(InetAddress address, int port, FileTracker tracker, boolean isAlive)
+    protected UDP_Sender(InetAddress address, int peerPort, FileTracker tracker, boolean isAlive)
               throws SocketException {
         this.outSocket = new DatagramSocket();
         this.address = address;
-        this.port = port;
+        this.peerPort = peerPort;
         this.tracker = tracker;
         this.isAlive = isAlive;
         this.lock = new ReentrantLock();
     }
 
-    protected UDP_Sender(InetAddress address, int port, FileTracker tracker) throws SocketException {
-        this(address, port, tracker, false);
+    protected UDP_Sender(InetAddress address, int peerPort, FileTracker tracker) throws SocketException {
+        this(address, peerPort, tracker, false);
     }
 
     @Override
@@ -62,7 +62,7 @@ public class UDP_Sender implements Runnable, Closeable {
             while(i < size){
                 Packet p = toSendMetadata.get(i);
                 try{
-                    this.outSocket.send(p.serialize(this.address, this.port));
+                    this.outSocket.send(p.serialize(this.address, this.peerPort));
                 }
                 catch(IllegalOpCodeException e){
                     continue;
@@ -140,7 +140,7 @@ public class UDP_Sender implements Runnable, Closeable {
 
         DatagramPacket dp = null;
             try{
-                dp = p.serialize(this.address, this.port);
+                dp = p.serialize(this.address, this.peerPort);
             }
             catch(IllegalOpCodeException e){}
         return dp;
