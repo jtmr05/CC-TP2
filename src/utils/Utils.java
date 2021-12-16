@@ -1,6 +1,9 @@
 package utils;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 public class Utils {
 
@@ -44,4 +47,9 @@ public class Utils {
         buffer.putInt(x);
         return buffer.array();
     }
+
+    public String readProtocol(Path path) throws IOException{
+        return Files.readString(path);
+    }
+
 }

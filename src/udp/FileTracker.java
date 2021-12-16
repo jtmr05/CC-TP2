@@ -20,6 +20,7 @@ public class FileTracker implements Closeable {
     private final Map<String, Packet> local;    //what files I have
     private final Map<String, Packet> remote;   //what files the other guy has
     private final Map<String, AckTracker> acks; //keep track of what was sent successfully
+    private final List<String> logs;
 
     private final Lock localLock;
     private final Lock remoteLock;
@@ -82,9 +83,13 @@ public class FileTracker implements Closeable {
     protected void addToSent(String id, short seqNum, Packet p){
         this.ackLock.lock();
         var ackTracker = this.acks.get(id);
-        ackTracker.sent.put(seqNum, p); 
+        ackTracker.sent.put(seqNum, p);
         ackTracker.biggest = (short) Math.max(ackTracker.biggest, seqNum);
         this.ackLock.unlock();
+    }
+
+    public List<String> getLogs(){
+        return this.logs;
     }
 
     protected short getCurrentSequenceNumber(String id){
@@ -111,7 +116,7 @@ public class FileTracker implements Closeable {
         return p;
     }
 
-    protected FileTracker(File dir){
+    public FileTracker(File dir){
         this.local = new HashMap<>();
         this.remote = new HashMap<>();
         this.acks = new HashMap<>();
@@ -122,6 +127,8 @@ public class FileTracker implements Closeable {
         this.ackLock = new ReentrantLock();
         
         this.hasNext = false;
+
+        this.logs = new ArrayList<String>();
 
         this.dir = dir;
         (this.t = new Thread(new Monitor())).start();
@@ -217,7 +224,7 @@ public class FileTracker implements Closeable {
      * Computes the {@link Set} of packets representing the missing files in the peer directory.
      * @return The set of metadata packets
      */
-    protected Set<Packet> toSendSet(){
+    public Set<Packet> toSendSet(){
         this.localLock.lock();
         var localSet = this.local.entrySet();
         this.remoteLock.lock();

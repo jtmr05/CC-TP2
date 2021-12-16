@@ -50,7 +50,7 @@ public class UDP_Sender implements Runnable, Closeable {
         catch(InterruptedException e){}
     }
 
-    private void sendMetadata(){
+    private void sendMetadata(){//ter os envios dos metadados no log???
         List<Packet> toSendMetadata = this.tracker.toSendMetadataList();
         final int size = toSendMetadata.size();
         try{
@@ -100,6 +100,7 @@ public class UDP_Sender implements Runnable, Closeable {
                     Thread.sleep(15 * windowSize);   //wait for an ACK
                 }
                 fcr.close();
+                this.tracker.getLogs().add(p.getFilename()+" foi enviada com sucesso");
             }
         }
         catch(Exception e){}

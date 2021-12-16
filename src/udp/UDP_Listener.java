@@ -16,12 +16,12 @@ public class UDP_Listener implements Runnable, AutoCloseable {
     private final UDP_Sender udpSender;
     private final Thread senderThread;
    
-    public UDP_Listener(int port, InetAddress address, File dir) throws SocketException {
+    public UDP_Listener(int port, InetAddress address, File dir,FileTracker f) throws SocketException {
         this.port = port;
         this.address = address;
         this.dir = dir;
         this.inSocket = new DatagramSocket(this.port);
-        this.tracker = new FileTracker(this.dir);
+        this.tracker = f;
 
         this.udpSender = new UDP_Sender(this.address, this.port, this.tracker);
         (this.senderThread = new Thread(this.udpSender)).start();

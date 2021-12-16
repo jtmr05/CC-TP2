@@ -21,4 +21,10 @@ public final class Consts {
     public static final int SECONDS_OF_SLEEP = 30; 
 
     public static final short INIT_SEQ_NUMBER = Short.MIN_VALUE;
+
+    //Mensagens dos logs
+
+    //public final String FILE_ENVIAVA = "File sent";
+
+
 }

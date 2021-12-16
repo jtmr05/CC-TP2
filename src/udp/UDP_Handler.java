@@ -39,17 +39,20 @@ public class UDP_Handler implements Runnable {
                 case DATA_TRANSFER -> {
                     var fcw = this.map.get(key);
                     try{
-                        if(fcw == null){ 
+                        if(fcw == null){ //nova file
                             String filename = this.tracker.getRemoteFilename(key);
                             String dirPath = this.dir.getAbsolutePath();
                             String filePath = new StringBuilder(dirPath).append("/").append(filename).toString();
                             fcw = FileChunkWriter.factory(filePath, this.tracker.getRemoteCreationTime(key));
+                            this.tracker.getLogs().add(p.getFilename()+" was received and saved");
                         }
                         if(fcw != null){
                             this.map.put(key, fcw);
                             int off = p.getSequenceNumber() - INIT_SEQ_NUMBER;
                             fcw.writeChunk(p.getData(), off);
+                            this.tracker.getLogs().add(p.getFilename()+" was updated");
                         }
+                        
                     }
                     catch(IOException e){}
                 }
@@ -60,6 +63,8 @@ public class UDP_Handler implements Runnable {
                 default -> {}
             }
         }
-        catch (IllegalOpCodeException e){} //ignore any other opcode
+        catch (IllegalOpCodeException e){
+
+        } //ignore any other opcode
     }
 }
