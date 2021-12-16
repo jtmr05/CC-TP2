@@ -1,11 +1,14 @@
 package udp;
 
 import java.net.*;
+
+import utils.Utils;
+
 import java.io.*;
 
 import static packet.Consts.*;
 
-public class UDP_Listener implements Runnable, AutoCloseable {
+public class UDP_Listener implements Runnable, Closeable {
 
     private final int port;
     private final InetAddress address;
@@ -13,18 +16,15 @@ public class UDP_Listener implements Runnable, AutoCloseable {
     private final File dir;
     private final FileTracker tracker;
 
-    private final UDP_Sender udpSender;
-    private final Thread senderThread;
-   
-    public UDP_Listener(int port, InetAddress address, File dir,FileTracker f) throws SocketException {
+    private UDP_Sender udpSender;
+    private Thread senderThread;
+
+    public UDP_Listener(int port, InetAddress address, File dir, FileTracker f) throws SocketException {
         this.port = port;
         this.address = address;
         this.dir = dir;
         this.inSocket = new DatagramSocket(this.port);
         this.tracker = f;
-
-        this.udpSender = new UDP_Sender(this.address, this.tracker);
-        (this.senderThread = new Thread(this.udpSender)).start();
     }
 
     @Override
@@ -33,10 +33,15 @@ public class UDP_Listener implements Runnable, AutoCloseable {
         DatagramPacket inPacket = new DatagramPacket(buffer, buffer.length);
 
         try{
+            int peerPort = this.init();
+
+            this.udpSender = new UDP_Sender(this.address, peerPort, this.tracker);
+            (this.senderThread = new Thread(this.udpSender)).start();
+
             while(true){
                 this.inSocket.receive(inPacket);
 
-                Thread handlerThread = new Thread(new UDP_Handler(inPacket, this.dir, this.tracker));
+                Thread handlerThread = new Thread(new UDP_Handler(inPacket, this.dir, this.tracker, peerPort));
                 handlerThread.start();
 
                 this.udpSender.signal(); //it's important that the received packet is treated
@@ -47,6 +52,22 @@ public class UDP_Listener implements Runnable, AutoCloseable {
         finally{
             this.close();
         }
+    }
+
+    private int init() throws IOException {
+        Utils u = new Utils();
+
+        var s = new DatagramSocket(this.port);
+
+        var buff = u.intToBytes(Ports.get());
+        var out = new DatagramPacket(buff, buff.length, this.address, this.port);
+        s.send(out);
+
+        var in = new DatagramPacket(new byte[buff.length], buff.length);
+        s.receive(in);
+
+        s.close();
+        return u.bytesToInt(in.getData());
     }
 
     @Override

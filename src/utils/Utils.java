@@ -3,17 +3,21 @@ package utils;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.Paths;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class Utils {
 
     public Utils(){}
-    
+
+    private static final String PROTOCOL_PATH = "utils/ProtocolDescription.txt";
+
     public short bytesToShort(byte[] bytes) {
         ByteBuffer buffer = ByteBuffer.allocate(Short.BYTES);
         buffer.put(bytes);
         buffer.flip();
-        return buffer.getShort();        
+        return buffer.getShort();
     }
 
     public long bytesToLong(byte[] bytes){
@@ -48,8 +52,21 @@ public class Utils {
         return buffer.array();
     }
 
-    public String readProtocol(Path path) throws IOException{
-        return Files.readString(path);
+    public String readProtocol() throws IOException {
+        return Files.readString(Paths.get(PROTOCOL_PATH), UTF_8);
     }
 
+    /*
+    public String readProtocol() throws IOException{
+        BufferedReader br = new BufferedReader(new FileReader(PROTOCOL_PATH, UTF_8));
+        String temp;
+        StringBuilder sb = new StringBuilder();
+
+        while((temp = br.readLine()) != null)
+            sb.append(temp).append("\n");
+
+        br.close();
+        return sb.toString();
+    }
+    */
 }

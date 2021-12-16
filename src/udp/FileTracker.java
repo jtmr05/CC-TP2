@@ -90,10 +90,6 @@ public class FileTracker implements Closeable {
         this.ackLock.unlock();
     }
 
-    public List<String> getLogs(){
-        return this.logs;
-    }
-
     protected short getCurrentSequenceNumber(String id){
         this.ackLock.lock();
         var ackTracker = this.acks.get(id);
@@ -134,6 +130,14 @@ public class FileTracker implements Closeable {
 
         this.dir = dir;
         (this.t = new Thread(new Monitor())).start();
+    }
+
+    public void log(String msg){
+        this.logs.add(msg);
+    }
+
+    public Iterator<String> logsIter(){
+        return this.logs.iterator();
     }
 
     public String getRemoteFilename(String id){

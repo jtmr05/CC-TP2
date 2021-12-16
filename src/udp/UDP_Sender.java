@@ -16,21 +16,23 @@ public class UDP_Sender implements Runnable, Closeable {
 
     private final DatagramSocket outSocket;
     private final InetAddress address;
+    private final int port;
     private final FileTracker tracker;
     private boolean isAlive;
     private final Lock lock;
 
-    protected UDP_Sender(InetAddress address, FileTracker tracker, boolean isAlive)
+    protected UDP_Sender(InetAddress address, int port, FileTracker tracker, boolean isAlive)
               throws SocketException {
         this.outSocket = new DatagramSocket();
         this.address = address;
+        this.port = port;
         this.tracker = tracker;
         this.isAlive = isAlive;
         this.lock = new ReentrantLock();
     }
 
-    protected UDP_Sender(InetAddress address, FileTracker tracker) throws SocketException {
-        this(address, tracker, false);
+    protected UDP_Sender(InetAddress address, int port, FileTracker tracker) throws SocketException {
+        this(address, port, tracker, false);
     }
 
     @Override
@@ -60,7 +62,7 @@ public class UDP_Sender implements Runnable, Closeable {
             while(i < size){
                 Packet p = toSendMetadata.get(i);
                 try{
-                    this.outSocket.send(p.serialize(this.address, Ports.get()));
+                    this.outSocket.send(p.serialize(this.address, this.port));
                 }
                 catch(IllegalOpCodeException e){
                     continue;
@@ -83,7 +85,8 @@ public class UDP_Sender implements Runnable, Closeable {
             for(int i = 0; i < size; i++){
                 short seqNum = INIT_SEQ_NUMBER;
                 Packet p = toSendData.get(i);
-                FileChunkReader fcr = new FileChunkReader(p.getFilename());
+                String filename = p.getFilename();
+                FileChunkReader fcr = new FileChunkReader(filename);
                 int windowSize = 1;
                 String hash = p.getMD5Hash();
                 int numOfTries = 0;
@@ -111,7 +114,7 @@ public class UDP_Sender implements Runnable, Closeable {
                     }
                 }
                 fcr.close();
-                this.tracker.getLogs().add(p.getFilename()+" foi enviada com sucesso");
+                this.tracker.log(filename + " foi enviado com sucesso");
             }
         }
         catch(Exception e){}
@@ -137,7 +140,7 @@ public class UDP_Sender implements Runnable, Closeable {
 
         DatagramPacket dp = null;
             try{
-                dp = p.serialize(this.address, Ports.get());
+                dp = p.serialize(this.address, this.port);
             }
             catch(IllegalOpCodeException e){}
         return dp;

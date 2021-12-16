@@ -16,12 +16,14 @@ public class UDP_Handler implements Runnable {
     private final File dir;
     private final FileTracker tracker;
     private final Map<String, FileChunkWriter> map;
+    private final int port;
 
-    protected UDP_Handler(DatagramPacket received, File dir, FileTracker tracker){
+    protected UDP_Handler(DatagramPacket received, File dir, FileTracker tracker, int port){
         this.received = received;
         this.dir = dir;
         this.tracker = tracker;
         this.map = new HashMap<>();
+        this.port = port;
     }
 
     @Override
@@ -44,15 +46,21 @@ public class UDP_Handler implements Runnable {
                             String dirPath = this.dir.getAbsolutePath();
                             String filePath = new StringBuilder(dirPath).append("/").append(filename).toString();
                             fcw = FileChunkWriter.factory(filePath, this.tracker.getRemoteCreationTime(key));
-                            this.tracker.getLogs().add(p.getFilename()+" was received and saved");
-                        }
-                        if(fcw != null){
                             this.map.put(key, fcw);
-                            int off = p.getSequenceNumber() - INIT_SEQ_NUMBER;
-                            fcw.writeChunk(p.getData(), off);
-                            this.tracker.getLogs().add(p.getFilename()+" was updated");
+                            this.tracker.log(filename + " was received and saved");
                         }
-                        
+
+                        short seqNum = p.getSequenceNumber();
+                        int off = (seqNum - INIT_SEQ_NUMBER) * DATA_SIZE;
+                        fcw.writeChunk(p.getData(), off);
+                        this.sendAck(new Packet(ACK, seqNum, key));
+
+                        if(!p.getHasNext() && fcw.isEmpty()){
+                            this.map.remove(key);
+                            fcw.close();
+                        }
+
+                        this.tracker.log(p.getFilename()+" was updated");
                     }
                     catch(IOException e){}
                 }
@@ -65,14 +73,12 @@ public class UDP_Handler implements Runnable {
                 default -> {}
             }
         }
-        catch (IllegalOpCodeException e){
-
-        } //ignore any other opcode
+        catch (IllegalOpCodeException e){} //ignore any other opcode
     }
 
 
     private void sendAck(Packet p) throws IOException, IllegalOpCodeException {
-        var ds = new DatagramSocket();
+        var ds = new DatagramSocket(this.port);
         ds.send(p.serialize(this.received.getAddress(), this.received.getPort()));
         ds.close();
     }

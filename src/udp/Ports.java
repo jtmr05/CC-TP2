@@ -8,7 +8,7 @@ public final class Ports{
     private static final int UPPER_BOUND = 45000;
     private static int current = LOWER_BOUND;
 
-    protected static int get(){
+    public static int get(){
         current++;
         current = (current < UPPER_BOUND) ? current : LOWER_BOUND;
         return current;
