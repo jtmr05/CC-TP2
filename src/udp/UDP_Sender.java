@@ -57,9 +57,10 @@ public class UDP_Sender implements Runnable, Closeable {
     }
 
     private void sendMetadata(){//ter os envios dos metadados no log???
-        System.out.println("about to start to send metadata");
         List<Packet> toSendMetadata = this.tracker.toSendMetadataList();
         final int size = toSendMetadata.size();
+        System.out.println("about to start to send metadata ("+size+" item(s))");
+
         try{
             int i = 0;
             while(i < size){

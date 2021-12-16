@@ -70,14 +70,7 @@ public class Packet {
     }
 
     public Packet(byte opcode, short sequenceNumber, String md5hash){
-        this.opcode = opcode;
-        this.sequenceNumber = sequenceNumber;
-        this.md5hash = md5hash;
-        this.timestamp = System.currentTimeMillis();
-
-        this.lastUpdated = this.creationDate = -1;
-        this.hasNext = false;
-        this.filename = (String) (Object) (this.data = null);
+        this(opcode, sequenceNumber, md5hash, System.currentTimeMillis());
     }
 
     public byte getOpcode(){

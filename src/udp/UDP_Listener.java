@@ -26,6 +26,7 @@ public class UDP_Listener implements Runnable, Closeable {
         this.tracker = tracker;
         this.udpSender = new UDP_Sender(this.address, this.peerPort, this.tracker, this.dir);
         (this.senderThread = new Thread(this.udpSender)).start();
+        System.out.println("will now send stuff");
     }
 
     @Override
@@ -37,6 +38,7 @@ public class UDP_Listener implements Runnable, Closeable {
 
             while(true){
                 this.inSocket.receive(inPacket);
+                System.out.println("i hab gift");
 
                 Thread handlerThread = new Thread(
                                        new UDP_Handler(inPacket, this.dir, this.tracker, this.localPort));
@@ -62,12 +64,3 @@ public class UDP_Listener implements Runnable, Closeable {
         catch(Exception e){}
     }
 }
-
-
-// try {
-//     String s = CompletableFuture.supplyAsync(() -> br.readLine()).get(1, TimeUnit.SECONDS);
-// } catch (TimeoutException e) {
-//     System.out.println("Time out has occurred");
-// } catch (InterruptedException | ExecutionException e) {
-//     // Handle
-// }
