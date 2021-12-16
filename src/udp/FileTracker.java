@@ -2,7 +2,6 @@ package udp;
 
 import java.io.*;
 import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.*;
@@ -12,10 +11,10 @@ import java.util.concurrent.locks.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static packet.Consts.*;
 import static udp.RTT.*;
 import packet.*;
-
 
 public class FileTracker implements Closeable {
 
@@ -196,7 +195,7 @@ public class FileTracker implements Closeable {
 
         try{
             MessageDigest md = MessageDigest.getInstance("md5");
-            byte[] hash = md.digest(sb.toString().getBytes(StandardCharsets.UTF_8));
+            byte[] hash = md.digest(sb.toString().getBytes(UTF_8));
 
             BigInteger number = new BigInteger(1, hash);
             sb.setLength(0);

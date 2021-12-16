@@ -145,6 +145,7 @@ public class UDP_Sender implements Runnable, Closeable {
 
         if(p == null){
             byte[] data = fcr.nextChunk();
+            System.out.println("\t\tsize is "+data.length);
             p = new Packet(DATA_TRANSFER, seqNum, hash, !fcr.isFinished(), data);
             this.tracker.addToSent(hash, seqNum, p);
         }

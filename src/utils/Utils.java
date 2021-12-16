@@ -62,4 +62,29 @@ public class Utils {
         br.close();
         return sb.toString();
     }
+
+    public String bytesToHexStr(byte[] arr){
+        int len = arr.length;
+
+        char[] hexValues = "0123456789ABCDEF".toCharArray();
+        char[] hexCharacter = new char[len * 2];
+
+        for (int i = 0; i < len; i++) {
+            int aux = arr[i] + Byte.MAX_VALUE;
+            int v = aux & 0xFF;
+            hexCharacter[i * 2] = hexValues[v >>> 4];
+            hexCharacter[i * 2 + 1] = hexValues[v & 0x0F];
+        }
+
+        return new String(hexCharacter);
+    }
+
+    public byte[] hexStrToBytes(String s){
+        byte[] arr = new byte[s.length() / 2];
+
+        for(int i = 0, j = 0; j < arr.length; i += 2, j++)
+            arr[j] = (byte) (Short.parseShort(s.substring(i, i+2), 16) - Byte.MAX_VALUE);
+
+        return arr;
+    }
 }
