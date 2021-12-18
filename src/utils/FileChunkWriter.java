@@ -23,8 +23,10 @@ public class FileChunkWriter implements Closeable {
         if(!f.exists())
             f.createNewFile();
 
-        Files.getFileAttributeView(f.toPath(), BasicFileAttributeView.class).
-              setTimes(null, null, FileTime.fromMillis(remoteCreationDate)); 
+        Files.setAttribute(f.toPath(), "creationTime", FileTime.fromMillis(remoteCreationDate));
+
+        //Files.getFileAttributeView(f.toPath(), BasicFileAttributeView.class).
+        //      setTimes(null, null, FileTime.fromMillis(remoteCreationDate)); 
         
         return new FileChunkWriter(f);
     }
@@ -40,6 +42,7 @@ public class FileChunkWriter implements Closeable {
                 this.writer.write(tmp);
                 this.offset += tmp.length;
             }
+            this.writer.flush();
         }
         else
             this.map.put(off, data);   

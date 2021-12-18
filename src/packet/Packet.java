@@ -228,8 +228,8 @@ public class Packet {
             case FILE_META -> {
 
                 byte[] md5hash = u.hexStrToBytes(this.md5hash);
-                System.arraycopy(md5hash, 0, data, pos, this.md5hash.length());
-                pos += this.md5hash.length();
+                System.arraycopy(md5hash, 0, data, pos, md5hash.length);
+                pos += md5hash.length;
 
                 byte[] lastUpdated = u.longToBytes(this.lastUpdated);
                 System.arraycopy(lastUpdated, 0, data, pos, lastUpdated.length);

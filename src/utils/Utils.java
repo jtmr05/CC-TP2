@@ -75,7 +75,6 @@ public class Utils {
             hexCharacter[i * 2] = hexValues[v >>> 4];
             hexCharacter[i * 2 + 1] = hexValues[v & 0x0F];
         }
-
         return new String(hexCharacter);
     }
 

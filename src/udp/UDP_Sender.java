@@ -40,10 +40,12 @@ public class UDP_Sender implements Runnable, Closeable {
     @Override
     public void run(){
         try{
+            Thread.sleep(1000);
             final int stride = 10, millis = MILLIS_OF_SLEEP;
             int i = 0;
             while(!Thread.interrupted()){
                 if(i == 0){
+                    //this.signal();
                     this.sendMetadata();
                     this.sendData();
                 }
@@ -70,16 +72,21 @@ public class UDP_Sender implements Runnable, Closeable {
                     this.outSocket.send(p.serialize(this.address, this.peerPort));
                 }
                 catch(IllegalOpCodeException e){
+                    System.out.println("bomdia");
                     continue;
                 }
 
-                if(this.isAlive)
+                if(this.isAlive){
                     i++;
+                    System.out.println("AQUIIIIIII");
+                }                
                 else
                     this.timeout();
             }
         }
-        catch(Exception e){}
+        catch(IOException e){
+            System.out.println("\nExceção nova\n");
+        }
     }
 
     private void sendData(){

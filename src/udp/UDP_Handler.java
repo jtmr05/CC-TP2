@@ -52,6 +52,7 @@ public class UDP_Handler implements Runnable {
 
                         short seqNum = p.getSequenceNumber();
                         int off = (seqNum - INIT_SEQ_NUMBER) * DATA_SIZE;
+                        System.out.println("ESTE É O OFFF--------------->"+off);
                         fcw.writeChunk(p.getData(), off);
                         this.sendAck(new Packet(ACK, seqNum, key));
 

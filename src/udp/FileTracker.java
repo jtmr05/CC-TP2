@@ -47,6 +47,7 @@ public class FileTracker implements Closeable {
                     if(i == 0){
                         System.out.println("populating...");
                         FileTracker.this.populate();
+                        System.out.println(local);
                     }
                     i += stride;
                     if(i >= millis)
@@ -242,20 +243,22 @@ public class FileTracker implements Closeable {
                 this.cond.await();
 
             //filenames in the peer directory
-            var remFilenames = this.remote.entrySet().
-                                           stream().
-                                           map(e -> e.getValue().getFilename()).
-                                           collect(Collectors.toCollection(HashSet::new));
+            Map<String, Long> filenameAndDate = new HashMap<>();
+
+            this.remote.entrySet().
+                        stream().
+                        map(e -> e.getValue()).
+                        forEach(p -> filenameAndDate.put(p.getFilename(), p.getCreationDate()));
 
             //if there are matching names, most recent one wins
             Predicate<Packet> predicate = p -> {
                 String filename = p.getFilename();
-                boolean b1 = remFilenames.contains(filename);
-                boolean b2 = b1
-                           ? this.remote.get(filename).getCreationDate() < p.getCreationDate() :
-                           true;
+                Long l = filenameAndDate.get(filename);
+                boolean b = (l != null)
+                          ? filenameAndDate.get(filename) < p.getCreationDate() :
+                          true;
 
-                return b2;
+                return b;
             };
 
             var ret = localSet.stream().
