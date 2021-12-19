@@ -22,11 +22,12 @@ public class FileChunkWriter implements Closeable {
 
         if(!f.exists())
             f.createNewFile();
-
-        Files.setAttribute(f.toPath(), "creationTime", FileTime.fromMillis(remoteCreationDate));
-
-        //Files.getFileAttributeView(f.toPath(), BasicFileAttributeView.class).
-        //      setTimes(null, null, FileTime.fromMillis(remoteCreationDate)); 
+        
+        System.out.println(Files.getAttribute(f.toPath(), "creationTime"));
+        //Files.setAttribute(f.toPath(), "creationTime", FileTime.fromMillis(remoteCreationDate));
+        Files.getFileAttributeView(f.toPath(), BasicFileAttributeView.class).
+              setTimes(null, null, FileTime.fromMillis(remoteCreationDate)); 
+        System.out.println(Files.getAttribute(f.toPath(), "creationTime"));
         
         return new FileChunkWriter(f);
     }

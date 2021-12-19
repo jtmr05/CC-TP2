@@ -192,7 +192,7 @@ public class FileTracker implements Closeable {
     private String hashFileMetadata(File file, BasicFileAttributes meta) throws IOException {
 
         StringBuilder sb = new StringBuilder();
-        sb.append(file.getName()).append(meta.creationTime());
+        sb.append(file.getName()).append(meta.creationTime().toMillis());
 
         try{
             MessageDigest md = MessageDigest.getInstance("md5");
