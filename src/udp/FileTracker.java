@@ -24,8 +24,10 @@ public class FileTracker implements Closeable {
 
     private final Lock localLock;
     private final Lock remoteLock;
-    private final Condition cond; //makes a thread wait when there is still metadata to be received
+    private final Condition remoteCond; //makes a thread wait when there is still metadata to be received
     private final Lock ackLock;
+    private final Condition ackCond;
+
 
     private boolean hasNext;
 
@@ -73,8 +75,8 @@ public class FileTracker implements Closeable {
     protected void ack(String id, short seqNum){
         this.ackLock.lock();
         AckTracker at = this.acks.get(id);
-
         at.sent.remove(seqNum);
+        this.ackCond.signalAll();
 
         while(!at.sent.containsKey(at.currentSequenceNumber) &&
                at.currentSequenceNumber < at.biggest)
@@ -122,8 +124,9 @@ public class FileTracker implements Closeable {
 
         this.localLock = new ReentrantLock();
         this.remoteLock = new ReentrantLock();
-        this.cond = this.remoteLock.newCondition();
+        this.remoteCond = this.remoteLock.newCondition();
         this.ackLock = new ReentrantLock();
+        this.ackCond = this.ackLock.newCondition();
 
         this.hasNext = false;
 
@@ -212,7 +215,7 @@ public class FileTracker implements Closeable {
         this.hasNext = value.getHasNext();
 
         if(!this.hasNext)
-            this.cond.signalAll();
+            this.remoteCond.signalAll();
 
         boolean b = this.remote.put(key, value) != null;
         this.remoteLock.unlock();
@@ -232,7 +235,7 @@ public class FileTracker implements Closeable {
 
         try{
             while(this.hasNext)
-                this.cond.await();
+                this.remoteCond.await();
 
             var ret = localSet.stream().
                                filter(e -> !this.remote.containsKey(e.getKey())).
@@ -241,7 +244,12 @@ public class FileTracker implements Closeable {
 
             this.ackLock.lock();
             this.remoteLock.unlock();
+
+            while(this.acks.values().stream().anyMatch(at -> !at.sent.isEmpty()))
+                this.ackCond.wait();
+
             this.acks.clear();
+
             ret.forEach(p -> this.acks.put(p.getMD5Hash(), new AckTracker()));
             this.ackLock.unlock();
             return ret;

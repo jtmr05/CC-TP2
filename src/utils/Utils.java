@@ -66,7 +66,7 @@ public class Utils {
     public String bytesToHexStr(byte[] arr){
         int len = arr.length;
 
-        char[] hexValues = "0123456789ABCDEF".toCharArray();
+        char[] hexValues = "0123456789abcdef".toCharArray();
         char[] hexCharacter = new char[len * 2];
 
         for (int i = 0; i < len; i++) {

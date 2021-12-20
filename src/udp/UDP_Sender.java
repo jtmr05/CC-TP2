@@ -94,6 +94,7 @@ public class UDP_Sender implements Runnable, Closeable {
         System.out.println("about to start to send data ("+size+" item(s))");
 
         try{
+            Thread.sleep(2000);
             for(int i = 0; i < size; i++){
                 short seqNum = INIT_SEQ_NUMBER;
                 Packet p = toSendData.get(0);
@@ -106,18 +107,21 @@ public class UDP_Sender implements Runnable, Closeable {
                 while((!fcr.isFinished()) || (!this.tracker.isEmpty(hash))){
                     this.timeout();
                     short curr = this.tracker.getCurrentSequenceNumber(hash);
-/*
-                    if(seqNum == curr){
+                    System.out.println("\t\texpected: "+seqNum+"got: "+curr);
+
+                    if((seqNum - curr) == 1){
                         windowSize *= 2;
                         numOfTries = 0;
                     }
                     else{
                         windowSize = 1;
                         seqNum = curr;
-                    } */
-
+                    }
+                    short temp = seqNum;
                     seqNum = this.send(windowSize, seqNum, hash, fcr);
-                    System.out.println("sending "+hash+" packet with "+seqNum);
+                    if(seqNum == temp)
+                        break;
+
                     numOfTries++;
 
                     if(numOfTries == 3){
@@ -131,17 +135,19 @@ public class UDP_Sender implements Runnable, Closeable {
                 this.tracker.log(filename + " foi enviado com sucesso");
             }
         }
-        catch(IOException | InterruptedException e){
-            if(e instanceof FileNotFoundException)
-                System.out.println("\texececao :/");
-        }
+        catch(IOException | InterruptedException e){}
     }
 
     private short send(int windowSize, short seqNum, String hash, FileChunkReader fcr) throws IOException {
         for(int j = 0; j < windowSize && !fcr.isFinished(); j++){
             var dp = this.nextDatagramPacket(hash, seqNum, fcr);
-            this.outSocket.send(dp);
-            seqNum++;
+            if(dp != null){
+                this.outSocket.send(dp);
+                System.out.println("sending "+hash+" packet with "+seqNum);
+                seqNum++;
+            }
+            else
+                break;
         }
         return seqNum;
     }
@@ -151,9 +157,13 @@ public class UDP_Sender implements Runnable, Closeable {
 
         if(p == null){
             byte[] data = fcr.nextChunk();
-            System.out.println("\t\tsize is "+data.length);
-            p = new Packet(DATA_TRANSFER, seqNum, hash, !fcr.isFinished(), data);
-            this.tracker.addToSent(hash, seqNum, p);
+            if(data != null){
+                System.out.println("\t\tsize is "+data.length);
+                p = new Packet(DATA_TRANSFER, seqNum, hash, !fcr.isFinished(), data);
+                this.tracker.addToSent(hash, seqNum, p);
+            }
+            else
+                return null;
         }
 
         DatagramPacket dp = null;

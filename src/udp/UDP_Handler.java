@@ -64,7 +64,7 @@ public class UDP_Handler implements Runnable {
                             fcw.close();
                         }
 
-                        this.tracker.log(p.getFilename()+" was updated");
+                        this.tracker.log(p.getFilename() + " was updated");
                     }
                     catch(IOException e){}
                 }
