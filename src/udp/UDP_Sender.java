@@ -72,14 +72,13 @@ public class UDP_Sender implements Runnable, Closeable {
                     this.outSocket.send(p.serialize(this.address, this.peerPort));
                 }
                 catch(IllegalOpCodeException e){
-                    System.out.println("bomdia");
                     continue;
                 }
 
                 if(this.isAlive){
                     i++;
                     System.out.println("AQUIIIIIII");
-                }                
+                }
                 else
                     this.timeout();
             }
@@ -99,17 +98,15 @@ public class UDP_Sender implements Runnable, Closeable {
                 short seqNum = INIT_SEQ_NUMBER;
                 Packet p = toSendData.get(0);
                 toSendData.remove(0);
-                String filename = p.getFilename();
+                String filename = p.getFilename(), hash = p.getMD5Hash();
                 FileChunkReader fcr = new FileChunkReader(filename, this.dir);
-                int windowSize = 1;
-                String hash = p.getMD5Hash();
+                int windowSize = 1, numOfTries = 0;
                 System.out.println("\t"+hash);
-                int numOfTries = 0;
 
                 while((!fcr.isFinished()) || (!this.tracker.isEmpty(hash))){
                     this.timeout();
                     short curr = this.tracker.getCurrentSequenceNumber(hash);
-
+/*
                     if(seqNum == curr){
                         windowSize *= 2;
                         numOfTries = 0;
@@ -117,23 +114,24 @@ public class UDP_Sender implements Runnable, Closeable {
                     else{
                         windowSize = 1;
                         seqNum = curr;
-                    }
+                    } */
 
                     seqNum = this.send(windowSize, seqNum, hash, fcr);
                     System.out.println("sending "+hash+" packet with "+seqNum);
                     numOfTries++;
-                    Thread.sleep(ESTIMATED_RTT * windowSize);   //wait for ACKs
 
                     if(numOfTries == 3){
                         this.interrupt();
                         numOfTries = 0;
                     }
+                    else
+                        Thread.sleep(ESTIMATED_RTT * windowSize);   //wait for ACKs
                 }
                 fcr.close();
                 this.tracker.log(filename + " foi enviado com sucesso");
             }
         }
-        catch(Exception e){
+        catch(IOException | InterruptedException e){
             if(e instanceof FileNotFoundException)
                 System.out.println("\texececao :/");
         }
@@ -179,8 +177,7 @@ public class UDP_Sender implements Runnable, Closeable {
     }
 
     private void timeout(){
-        System.out.println("zzzz...");
-        while(!this.isAlive)
+        for(System.out.println("zzzz...");!this.isAlive;)
             try{
                 Thread.sleep(10);
             }

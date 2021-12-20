@@ -11,7 +11,7 @@ public final class RTT {
     private static final Lock lock = new ReentrantLock();
     private static long RTT_SUM = 0;
     private static long COUNT = 0;
-    protected static long ESTIMATED_RTT = 100;         //20 ms of initial estimated RTT
+    protected static long ESTIMATED_RTT = 1500;         //20 ms of initial estimated RTT
 
     /**
      * Updates this classes' {@code RTT_SUM} and {@code COUNT}, thus calculating an

@@ -18,8 +18,6 @@ public class Packet {
     /** Epoch time of the last time file was updated*/
     private final long lastUpdated;
     /** Epoch time of the files creation date */
-    private final long creationDate;
-    /** This attribute tells us if this is the last file*/
     private final boolean hasNext;
     /** The chunk sequence number*/
     private final short sequenceNumber;
@@ -32,12 +30,10 @@ public class Packet {
 
 
     //FILE_META
-    public Packet(byte opcode, String md5hash, long lastUpdated, long creationDate, String filename,
-                  boolean hasNext){
+    public Packet(byte opcode, String md5hash, long lastUpdated, String filename, boolean hasNext){
         this.opcode = opcode;
         this.md5hash = md5hash;
         this.lastUpdated = lastUpdated;
-        this.creationDate = creationDate;
         this.hasNext = hasNext;
         this.filename = filename;
 
@@ -53,7 +49,7 @@ public class Packet {
         this.hasNext = hasNext;
         this.data = data;
 
-        this.lastUpdated = this.creationDate = this.timestamp = -1;
+        this.lastUpdated = this.timestamp = -1;
         this.filename = null;
     }
 
@@ -64,7 +60,7 @@ public class Packet {
         this.md5hash = md5hash;
         this.timestamp = timestamp;
 
-        this.lastUpdated = this.creationDate = -1;
+        this.lastUpdated = -1;
         this.hasNext = false;
         this.filename = (String) (Object) (this.data = null);
     }
@@ -83,10 +79,6 @@ public class Packet {
 
     public long getLastUpdated(){
         return this.lastUpdated;
-    }
-
-    public long getCreationDate(){
-        return this.creationDate;
     }
 
     public boolean getHasNext(){
@@ -140,10 +132,6 @@ public class Packet {
                 System.arraycopy(data, pos, lastUpdated, 0, lastUpdated.length);
                 pos += lastUpdated.length;
 
-                byte[] creationDate = new byte[CREATION_SIZE];
-                System.arraycopy(data, pos, creationDate, 0, creationDate.length);
-                pos += creationDate.length;
-
                 byte[] nameSize = new byte[NAME_SIZE_SIZE];
                 System.arraycopy(data, pos, nameSize, 0, nameSize.length);
                 pos += nameSize.length;
@@ -155,7 +143,7 @@ public class Packet {
                 boolean hasNext = data[pos] != 0;
 
                 p = new Packet(FILE_META, u.bytesToHexStr(md5hash), u.bytesToLong(lastUpdated),
-                               u.bytesToLong(creationDate), new String(filename, UTF_8), hasNext);
+                               new String(filename, UTF_8), hasNext);
             }
 
             case DATA_TRANSFER -> {
@@ -234,10 +222,6 @@ public class Packet {
                 byte[] lastUpdated = u.longToBytes(this.lastUpdated);
                 System.arraycopy(lastUpdated, 0, data, pos, lastUpdated.length);
                 pos += lastUpdated.length;
-
-                byte[] creationDate = u.longToBytes(this.creationDate);
-                System.arraycopy(creationDate, 0, data, pos, creationDate.length);
-                pos += creationDate.length;
 
                 byte[] filenameLength = u.intToBytes(this.filename.length());
                 System.arraycopy(filenameLength, 0, data, pos, filenameLength.length);

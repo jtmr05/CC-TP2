@@ -38,14 +38,15 @@ public class UDP_Listener implements Runnable, Closeable {
         try{
 
             while(true){
-                
+
                 this.inSocket.receive(inPacket);
                 this.udpSender.signal(); //it's important that the received packet is treated
-                
+
                 System.out.println("i hab gift");
 
                 Thread handlerThread = new Thread(
-                                       new UDP_Handler(inPacket, this.dir, this.tracker, this.localPort));
+                                       new UDP_Handler(inPacket, this.dir, this.tracker,
+                                       this.localPort, this.peerPort, this.address));
                 handlerThread.start();
 
                                          //before signaling the sender

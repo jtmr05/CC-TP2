@@ -1,8 +1,6 @@
 package utils;
 
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.attribute.*;
 import java.util.*;
 
 public class FileChunkWriter implements Closeable {
@@ -10,25 +8,19 @@ public class FileChunkWriter implements Closeable {
     private final BufferedOutputStream writer;
     private final Map<Integer, byte[]> map;
     private int offset;
-    
+
     private FileChunkWriter(File f) throws FileNotFoundException {
         this.writer = new BufferedOutputStream(new FileOutputStream(f));
         this.map = new HashMap<>();
         this.offset = 0;
     }
 
-    public static FileChunkWriter factory(String filename, long remoteCreationDate) throws IOException {
+    public static FileChunkWriter factory(String filename) throws IOException {
         File f = new File(filename);
 
         if(!f.exists())
             f.createNewFile();
-        
-        System.out.println(Files.getAttribute(f.toPath(), "creationTime"));
-        //Files.setAttribute(f.toPath(), "creationTime", FileTime.fromMillis(remoteCreationDate));
-        Files.getFileAttributeView(f.toPath(), BasicFileAttributeView.class).
-              setTimes(null, null, FileTime.fromMillis(remoteCreationDate)); 
-        System.out.println(Files.getAttribute(f.toPath(), "creationTime"));
-        
+
         return new FileChunkWriter(f);
     }
 
@@ -46,7 +38,7 @@ public class FileChunkWriter implements Closeable {
             this.writer.flush();
         }
         else
-            this.map.put(off, data);   
+            this.map.put(off, data);
     }
 
     public boolean isEmpty(){

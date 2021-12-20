@@ -23,3 +23,4 @@ default:
 
 $(JAR): $(SRC_FILES)
 	@mvn package
+	@cp $(JAR) $(TEST_PATH)

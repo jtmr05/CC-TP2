@@ -17,13 +17,17 @@ public class UDP_Handler implements Runnable {
     private final FileTracker tracker;
     private final Map<String, FileChunkWriter> map;
     private final int localPort;
+    private final int peerPort;
+    private final InetAddress address;
 
-    protected UDP_Handler(DatagramPacket received, File dir, FileTracker tracker, int localPort){
+    protected UDP_Handler(DatagramPacket received, File dir, FileTracker tracker, int localPort, int peerPort, InetAddress address){
         this.received = received;
         this.dir = dir;
         this.tracker = tracker;
         this.map = new HashMap<>();
         this.localPort = localPort;
+        this.peerPort = peerPort;
+        this.address = address;
     }
 
     @Override
@@ -45,14 +49,13 @@ public class UDP_Handler implements Runnable {
                             String filename = this.tracker.getRemoteFilename(key);
                             String dirPath = this.dir.getAbsolutePath();
                             String filePath = new StringBuilder(dirPath).append("/").append(filename).toString();
-                            fcw = FileChunkWriter.factory(filePath, this.tracker.getRemoteCreationTime(key));
+                            fcw = FileChunkWriter.factory(filePath);
                             this.map.put(key, fcw);
                             this.tracker.log(filename + " was received and saved");
                         }
 
                         short seqNum = p.getSequenceNumber();
                         int off = (seqNum - INIT_SEQ_NUMBER) * DATA_SIZE;
-                        System.out.println("ESTE É O OFFF--------------->"+off);
                         fcw.writeChunk(p.getData(), off);
                         this.sendAck(new Packet(ACK, seqNum, key));
 
@@ -79,8 +82,9 @@ public class UDP_Handler implements Runnable {
 
 
     private void sendAck(Packet p) throws IOException, IllegalOpCodeException {
-        var ds = new DatagramSocket(this.localPort);
-        ds.send(p.serialize(this.received.getAddress(), this.received.getPort()));
+        var ds = new DatagramSocket();
+        ds.send(p.serialize(this.address, this.peerPort));
+        System.out.println("sending ack");
         ds.close();
     }
 }

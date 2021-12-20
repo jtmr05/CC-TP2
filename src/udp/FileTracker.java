@@ -8,7 +8,6 @@ import java.security.*;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.concurrent.locks.*;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -73,45 +72,45 @@ public class FileTracker implements Closeable {
 
     protected void ack(String id, short seqNum){
         this.ackLock.lock();
-        var ackTracker = this.acks.get(id);
+        AckTracker at = this.acks.get(id);
 
-        ackTracker.sent.remove(seqNum);
+        at.sent.remove(seqNum);
 
-        while(!ackTracker.sent.containsKey(ackTracker.currentSequenceNumber) &&
-               ackTracker.currentSequenceNumber < ackTracker.biggest)
-            ackTracker.currentSequenceNumber++;
+        while(!at.sent.containsKey(at.currentSequenceNumber) &&
+               at.currentSequenceNumber < at.biggest)
+            at.currentSequenceNumber++;
 
         this.ackLock.unlock();
     }
 
     protected void addToSent(String id, short seqNum, Packet p){
         this.ackLock.lock();
-        var ackTracker = this.acks.get(id);
-        ackTracker.sent.put(seqNum, p);
-        ackTracker.biggest = (short) Math.max(ackTracker.biggest, seqNum);
+        AckTracker at = this.acks.get(id);
+        at.sent.put(seqNum, p);
+        at.biggest = (short) Math.max(at.biggest, seqNum);
         this.ackLock.unlock();
     }
 
     protected short getCurrentSequenceNumber(String id){
         this.ackLock.lock();
-        var ackTracker = this.acks.get(id);
-        short s = ackTracker.currentSequenceNumber;
+        AckTracker at = this.acks.get(id);
+        short s = at.currentSequenceNumber;
         this.ackLock.unlock();
         return s;
     }
 
     protected boolean isEmpty(String id){
         this.ackLock.lock();
-        var ackTracker = this.acks.get(id);
-        boolean b = ackTracker.sent.isEmpty();
+        AckTracker at = this.acks.get(id);
+        boolean b = at.sent.isEmpty();
         this.ackLock.unlock();
         return b;
     }
 
     protected Packet getCachedPacket(String id, short seqNum){
         this.ackLock.lock();
-        var ackTracker = this.acks.get(id);
-        Packet p = ackTracker.sent.get(seqNum);
+        AckTracker at = this.acks.get(id);
+        Packet p = at.sent.get(seqNum);
         this.ackLock.unlock();
         return p;
     }
@@ -149,13 +148,6 @@ public class FileTracker implements Closeable {
         return filename;
     }
 
-    public long getRemoteCreationTime(String id){
-        this.remoteLock.lock();
-        long l = this.remote.get(id).getCreationDate();
-        this.remoteLock.unlock();
-        return l;
-    }
-
     private void populate(){
 
         if(this.dir.isDirectory()){
@@ -176,7 +168,7 @@ public class FileTracker implements Closeable {
                     if(!this.local.containsKey(key)){
                         boolean hasNext = i != (size-1);
                         Packet p = new Packet(FILE_META, key, meta.lastModifiedTime().toMillis(),
-                                              meta.creationTime().toMillis(), f.getName(), hasNext);
+                                              f.getName(), hasNext);
 
                         this.local.put(key, p);
                     }
@@ -192,7 +184,7 @@ public class FileTracker implements Closeable {
     private String hashFileMetadata(File file, BasicFileAttributes meta) throws IOException {
 
         StringBuilder sb = new StringBuilder();
-        sb.append(file.getName()).append(meta.creationTime().toMillis());
+        sb.append(file.getName());
 
         try{
             MessageDigest md = MessageDigest.getInstance("md5");
@@ -242,29 +234,9 @@ public class FileTracker implements Closeable {
             while(this.hasNext)
                 this.cond.await();
 
-            //filenames in the peer directory
-            Map<String, Long> filenameAndDate = new HashMap<>();
-
-            this.remote.entrySet().
-                        stream().
-                        map(e -> e.getValue()).
-                        forEach(p -> filenameAndDate.put(p.getFilename(), p.getCreationDate()));
-
-            //if there are matching names, most recent one wins
-            Predicate<Packet> predicate = p -> {
-                String filename = p.getFilename();
-                Long l = filenameAndDate.get(filename);
-                boolean b = (l != null)
-                          ? filenameAndDate.get(filename) < p.getCreationDate() :
-                          true;
-
-                return b;
-            };
-
             var ret = localSet.stream().
                                filter(e -> !this.remote.containsKey(e.getKey())).
                                map(Entry::getValue).
-                               filter(predicate).
                                collect(Collectors.toCollection(HashSet::new));
 
             this.ackLock.lock();
