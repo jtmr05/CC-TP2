@@ -45,7 +45,7 @@ public class UDP_Sender implements Runnable, Closeable {
             int i = 0;
             while(!Thread.interrupted()){
                 if(i == 0){
-                    //this.signal();
+                    
                     this.sendMetadata();
                     this.sendData();
                 }
@@ -75,17 +75,13 @@ public class UDP_Sender implements Runnable, Closeable {
                     continue;
                 }
 
-                if(this.isAlive){
+                if(this.isAlive)
                     i++;
-                    System.out.println("AQUIIIIIII");
-                }
                 else
                     this.timeout();
             }
         }
-        catch(IOException e){
-            System.out.println("\nExceção nova\n");
-        }
+        catch(IOException e){}
     }
 
     private void sendData(){
@@ -107,14 +103,14 @@ public class UDP_Sender implements Runnable, Closeable {
                 while((!fcr.isFinished()) || (!this.tracker.isEmpty(hash))){
                     this.timeout();
                     short curr = this.tracker.getCurrentSequenceNumber(hash);
-                    System.out.println("\t\texpected: "+seqNum+"got: "+curr);
+                    System.out.println("\t\texpected: "+seqNum+" got: "+curr);
 
-                    if((seqNum - curr) == 1){
-                        windowSize *= 2;
+                    if((seqNum - curr) == 0){
+                        //windowSize *= 2;
                         numOfTries = 0;
                     }
                     else{
-                        windowSize = 1;
+                        //windowSize = 1;
                         seqNum = curr;
                     }
                     short temp = seqNum;

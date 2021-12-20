@@ -17,7 +17,7 @@ public final class Consts {
     static final int DATA_SIZE_SIZE = Short.BYTES;
     static final int TIMESTAMP_SIZE = Long.BYTES;
     public static final int DATA_SIZE = MAX_PACKET_SIZE - (1 + SEQ_NUM_SIZE + HASH_SIZE + 1 + DATA_SIZE_SIZE);
-
+    public int a = Short.MAX_VALUE;
     public static final short INIT_SEQ_NUMBER = 0;//Short.MIN_VALUE;
 
     //Mensagens dos logs

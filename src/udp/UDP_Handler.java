@@ -2,7 +2,6 @@ package udp;
 
 import java.io.*;
 import java.net.*;
-import java.util.*;
 
 import packet.*;
 import utils.*;
@@ -15,17 +14,13 @@ public class UDP_Handler implements Runnable {
     private final DatagramPacket received;
     private final File dir;
     private final FileTracker tracker;
-    private final Map<String, FileChunkWriter> map;
-    private final int localPort;
     private final int peerPort;
     private final InetAddress address;
 
-    protected UDP_Handler(DatagramPacket received, File dir, FileTracker tracker, int localPort, int peerPort, InetAddress address){
+    protected UDP_Handler(DatagramPacket received, File dir, FileTracker tracker, int peerPort, InetAddress address){
         this.received = received;
         this.dir = dir;
         this.tracker = tracker;
-        this.map = new HashMap<>();
-        this.localPort = localPort;
         this.peerPort = peerPort;
         this.address = address;
     }
@@ -43,26 +38,28 @@ public class UDP_Handler implements Runnable {
                     this.tracker.putInRemote(key, p);
 
                 case DATA_TRANSFER -> {
-                    var fcw = this.map.get(key);
+                    var fcw = this.tracker.getChunkWriter(key);
                     try{
+                        short seqNum = p.getSequenceNumber();
                         if(fcw == null){ //nova file
+                            System.out.println("\tDENTRO DO IF: "+seqNum);
+                            System.out.println("-\t>>>>>>>>>>>>>>>>>>"+key);
                             String filename = this.tracker.getRemoteFilename(key);
                             String dirPath = this.dir.getAbsolutePath();
                             String filePath = new StringBuilder(dirPath).append("/").append(filename).toString();
                             fcw = FileChunkWriter.factory(filePath);
-                            this.map.put(key, fcw);
+                            this.tracker.putChunkWriter(key, fcw);
                             this.tracker.log(filename + " was received and saved");
                         }
 
-                        short seqNum = p.getSequenceNumber();
+                        System.out.println("---->"+seqNum+"\t"+Thread.currentThread().getName());
                         int off = (seqNum - INIT_SEQ_NUMBER) * DATA_SIZE;
+                        
                         fcw.writeChunk(p.getData(), off);
                         this.sendAck(new Packet(ACK, seqNum, key));
 
-                        if(!p.getHasNext() && fcw.isEmpty()){
-                            this.map.remove(key);
-                            fcw.close();
-                        }
+                        if(!p.getHasNext() && fcw.isEmpty())
+                            this.tracker.removeChunkWriter(key);
 
                         this.tracker.log(p.getFilename() + " was updated");
                     }

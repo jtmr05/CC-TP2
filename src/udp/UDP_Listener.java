@@ -46,7 +46,7 @@ public class UDP_Listener implements Runnable, Closeable {
 
                 Thread handlerThread = new Thread(
                                        new UDP_Handler(inPacket, this.dir, this.tracker,
-                                       this.localPort, this.peerPort, this.address));
+                                       this.peerPort, this.address));
                 handlerThread.start();
 
                                          //before signaling the sender

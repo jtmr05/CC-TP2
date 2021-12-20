@@ -28,7 +28,6 @@ public class Packet {
     /** Timestamp used to calculate RTT */
     private final long timestamp;
 
-
     //FILE_META
     public Packet(byte opcode, String md5hash, long lastUpdated, String filename, boolean hasNext){
         this.opcode = opcode;

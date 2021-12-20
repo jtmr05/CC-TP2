@@ -14,16 +14,19 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static packet.Consts.*;
 import static udp.RTT.*;
 import packet.*;
+import utils.FileChunkWriter;
 
 public class FileTracker implements Closeable {
 
     private final Map<String, Packet> local;    //what files I have
     private final Map<String, Packet> remote;   //what files the other guy has
     private final Map<String, AckTracker> acks; //keep track of what was sent successfully
+    private final Map<String, FileChunkWriter> receivedChunks;
     private final List<String> logs;
 
     private final Lock localLock;
     private final Lock remoteLock;
+    private final Lock chunkLock;
     private final Condition remoteCond; //makes a thread wait when there is still metadata to be received
     private final Lock ackLock;
     private final Condition ackCond;
@@ -78,8 +81,9 @@ public class FileTracker implements Closeable {
         at.sent.remove(seqNum);
         this.ackCond.signalAll();
 
-        while(!at.sent.containsKey(at.currentSequenceNumber) &&
-               at.currentSequenceNumber < at.biggest)
+        //while(!at.sent.containsKey(at.currentSequenceNumber) &&
+        //       at.currentSequenceNumber < at.biggest)
+        if(seqNum==at.currentSequenceNumber)
             at.currentSequenceNumber++;
 
         this.ackLock.unlock();
@@ -121,11 +125,13 @@ public class FileTracker implements Closeable {
         this.local = new HashMap<>();
         this.remote = new HashMap<>();
         this.acks = new HashMap<>();
+        this.receivedChunks = new HashMap<>();
 
         this.localLock = new ReentrantLock();
         this.remoteLock = new ReentrantLock();
         this.remoteCond = this.remoteLock.newCondition();
         this.ackLock = new ReentrantLock();
+        this.chunkLock = new ReentrantLock();
         this.ackCond = this.ackLock.newCondition();
 
         this.hasNext = false;
@@ -134,6 +140,28 @@ public class FileTracker implements Closeable {
 
         this.dir = dir;
         (this.t = new Thread(new Monitor())).start();
+    }
+
+    protected FileChunkWriter getChunkWriter(String id){
+        this.chunkLock.lock();
+        var fcw = this.receivedChunks.get(id);
+        this.chunkLock.unlock();
+        return fcw;
+    }
+
+    protected void putChunkWriter(String id, FileChunkWriter fcw){
+        this.chunkLock.lock();
+        this.receivedChunks.putIfAbsent(id, fcw);
+        this.chunkLock.unlock();
+    }
+
+    protected FileChunkWriter removeChunkWriter(String id){
+        this.chunkLock.lock();
+        var fcw = this.receivedChunks.remove(id);
+        if(fcw != null)
+            fcw.close();
+        this.chunkLock.unlock();
+        return fcw;
     }
 
     public void log(String msg){
@@ -146,6 +174,7 @@ public class FileTracker implements Closeable {
 
     public String getRemoteFilename(String id){
         this.remoteLock.lock();
+        System.out.println("{{{{{{{{"+this.remote.keySet());
         String filename = this.remote.get(id).getFilename();
         this.remoteLock.unlock();
         return filename;
@@ -158,6 +187,10 @@ public class FileTracker implements Closeable {
                                       filter(File::isFile).
                                       collect(Collectors.toList());
             final int size = files.size();
+            System.out.println("SIZESIZESIZE "+size);
+            for(File f:files){
+                System.out.println(f.getName());
+            }
 
             try{
                 this.localLock.lock();
@@ -209,8 +242,8 @@ public class FileTracker implements Closeable {
     protected boolean putInRemote(String key, Packet value){
         this.remoteLock.lock();
 
-        if(!this.hasNext)
-            this.remote.clear();        //clear the map when a new batch of Packets arrives
+        //if(!this.hasNext)
+        //    this.remote.clear();        //clear the map when a new batch of Packets arrives
 
         this.hasNext = value.getHasNext();
 
@@ -241,12 +274,15 @@ public class FileTracker implements Closeable {
                                filter(e -> !this.remote.containsKey(e.getKey())).
                                map(Entry::getValue).
                                collect(Collectors.toCollection(HashSet::new));
+            
+            System.out.println("AQUI VAI: "+this.local.keySet());
+            System.out.println(this.remote.keySet());
 
             this.ackLock.lock();
             this.remoteLock.unlock();
 
             while(this.acks.values().stream().anyMatch(at -> !at.sent.isEmpty()))
-                this.ackCond.wait();
+                this.ackCond.await();
 
             this.acks.clear();
 
@@ -266,12 +302,13 @@ public class FileTracker implements Closeable {
         this.localLock.unlock();
 
         var list = localSet.stream().
-                            filter(e -> !this.remote.containsKey(e.getKey())).
+                            //filter(e -> !this.remote.containsKey(e.getKey())).
                             map(Entry::getValue).
                             collect(Collectors.toList());
 
         this.remoteLock.unlock();
         list.sort((p1, p2) -> Boolean.compare(p2.getHasNext(), p1.getHasNext())); //false comes last
+        list.forEach(a -> System.out.println(a.getHasNext()));
         return list;
     }
 
