@@ -9,7 +9,7 @@ public class Utils {
 
     public Utils(){}
 
-    private static final String PROTOCOL_PATH = "utils/ProtocolDescription.txt";
+    private static final String PROTOCOL_PATH = "/home/diogobarbosa/3º ano/CC/CC-TP2/src/utils/ProtocolDescription.txt";
 
     public short bytesToShort(byte[] bytes) {
         ByteBuffer buffer = ByteBuffer.allocate(Short.BYTES);
@@ -51,7 +51,8 @@ public class Utils {
     }
 
     public String readProtocol() throws IOException{
-        BufferedReader br = new BufferedReader(new FileReader(PROTOCOL_PATH, UTF_8));
+        InputStream is = getClass().getResourceAsStream("ProtocolDescription.txt"); //check if name is right
+        BufferedReader br = new BufferedReader(new InputStreamReader(is));
         String temp;
         StringBuilder sb = new StringBuilder(br.readLine());
 

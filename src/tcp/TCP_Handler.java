@@ -82,6 +82,7 @@ public class TCP_Handler implements Runnable {
 
                     default:
                         body.append("Page not Found");
+                        body.append("<span></html>");
                         break;
                 }
 

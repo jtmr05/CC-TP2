@@ -30,7 +30,7 @@ public class UDP_Sender implements Runnable, Closeable {
         this.tracker = tracker;
         this.dir = dir;
         this.isAlive = isAlive;
-        this.lock = new ReentrantLock();
+        this.lock = new ReentrantLock();        
     }
 
     protected UDP_Sender(InetAddress address, int peerPort, FileTracker tracker, File dir) throws SocketException {
@@ -45,7 +45,6 @@ public class UDP_Sender implements Runnable, Closeable {
             int i = 0;
             while(!Thread.interrupted()){
                 if(i == 0){
-                    
                     this.sendMetadata();
                     this.sendData();
                 }

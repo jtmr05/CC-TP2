@@ -129,7 +129,7 @@ public class FileTracker implements Closeable {
 
         this.localLock = new ReentrantLock();
         this.remoteLock = new ReentrantLock();
-        this.remoteCond = this.remoteLock.newCondition();
+        this.remoteCond = remoteLock.newCondition();
         this.ackLock = new ReentrantLock();
         this.chunkLock = new ReentrantLock();
         this.ackCond = this.ackLock.newCondition();
@@ -188,9 +188,7 @@ public class FileTracker implements Closeable {
                                       collect(Collectors.toList());
             final int size = files.size();
             System.out.println("SIZESIZESIZE "+size);
-            for(File f:files){
-                System.out.println(f.getName());
-            }
+            
 
             try{
                 this.localLock.lock();
@@ -252,6 +250,7 @@ public class FileTracker implements Closeable {
 
         boolean b = this.remote.put(key, value) != null;
         this.remoteLock.unlock();
+        System.out.println("CHAVES: " + this.remote.keySet());
 
         return b;
     }
@@ -261,6 +260,7 @@ public class FileTracker implements Closeable {
      * @return The set of metadata packets
      */
     public Set<Packet> toSendSet(){
+        System.out.println("AINDA MAIS CHAVES: "+this.remote.keySet());
         this.localLock.lock();
         var localSet = this.local.entrySet();
         this.remoteLock.lock();
