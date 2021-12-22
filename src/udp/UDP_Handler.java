@@ -43,8 +43,8 @@ public class UDP_Handler implements Runnable {
                     try{
                         short seqNum = p.getSequenceNumber();
                         if(fcw == null){ //nova file
-                            System.out.println("\tDENTRO DO IF: "+seqNum);
-                            System.out.println("-\t>>>>>>>>>>>>>>>>>>"+key);
+                            //System.out.println("\tDENTRO DO IF: "+seqNum);
+                            //System.out.println("-\t>>>>>>>>>>>>>>>>>>"+key);
                             String filename = this.tracker.getRemoteFilename(key);
                             if(filename==null) break;
                             String dirPath = this.dir.getAbsolutePath();
@@ -63,7 +63,7 @@ public class UDP_Handler implements Runnable {
 
                         if(!p.getHasNext() && fcw.isEmpty()){
                             this.tracker.removeChunkWriter(key);
-                            this.tracker.log(this.tracker.getRemoteFilename(key) + " was received and saved");
+                            this.tracker.log("<b>"+this.tracker.getRemoteFilename(key) + " was received and saved </b>");
                         }
                     }
                     catch(IOException e){}
@@ -78,12 +78,14 @@ public class UDP_Handler implements Runnable {
                 default -> {}
             }
         }
-        catch (IllegalOpCodeException e){} //ignore any other opcode
+        catch (IllegalPacketException e){
+            System.out.println("\t\tEXECECAO MANERAAA");
+        } //ignore any other opcode
  
     }
 
 
-    private void sendAck(Packet p) throws IOException, IllegalOpCodeException {
+    private void sendAck(Packet p) throws IOException, IllegalPacketException {
         var ds = new DatagramSocket();
         ds.send(p.serialize(this.address, this.peerPort));
         Utils u = new Utils();

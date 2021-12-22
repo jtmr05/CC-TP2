@@ -216,7 +216,7 @@ public class FileTracker implements Closeable {
                 }
                 this.localLock.unlock();
             }
-            catch(IOException e){
+            catch(IOException | IllegalPacketException e){
                 this.localLock.unlock();
             }
         }
@@ -268,7 +268,7 @@ public class FileTracker implements Closeable {
      */
     public Set<Packet> toSendSet(){
         
-        System.out.println("AINDA MAIS CHAVES: "+this.remote.keySet());
+        //System.out.println("AINDA MAIS CHAVES: "+this.remote.keySet());
         this.localLock.lock();
         var localSet = this.local.entrySet();
         this.remoteLock.lock();
@@ -279,15 +279,15 @@ public class FileTracker implements Closeable {
             while(this.hasNext)
                 this.remoteCond.await();
             
-            System.out.println("ANTES->"+this.remote.keySet());
+            //System.out.println("ANTES->"+this.remote.keySet());
 
             var ret = localSet.stream().
                                filter(e -> !this.remote.containsKey(e.getKey())).
                                map(Entry::getValue).
                                collect(Collectors.toCollection(HashSet::new));
 
-            System.out.println("AQUI VAI: "+this.local.keySet());
-            System.out.println(this.remote.keySet());
+            //System.out.println("AQUI VAI: "+this.local.keySet());
+            //System.out.println(this.remote.keySet());
 
             this.ackLock.lock();
             this.remoteLock.unlock();

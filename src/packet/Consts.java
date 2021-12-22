@@ -16,11 +16,10 @@ public final class Consts {
     static final int DATA_SIZE_SIZE = Short.BYTES;
     static final int TIMESTAMP_SIZE = Long.BYTES;
     static final int HMAC_SIZE = 20;
-    public static final int DATA_SIZE = MAX_PACKET_SIZE - (1 + SEQ_NUM_SIZE + 
-                                                           HASH_SIZE + 1 + DATA_SIZE_SIZE + HMAC_SIZE);
+    public static final int DATA_SIZE = MAX_PACKET_SIZE - (1 + SEQ_NUM_SIZE + HASH_SIZE + 1 + DATA_SIZE_SIZE);
     
     public static final short INIT_SEQ_NUMBER = 0;//Short.MIN_VALUE;
 
     static final String HMAC_SHA1_ALGORITHM = "HmacSHA1";
-    static final String KEY = "CC-LEI";
+    static final String KEY = "bomdia123";
 }

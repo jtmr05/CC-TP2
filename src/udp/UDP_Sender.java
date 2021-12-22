@@ -71,7 +71,7 @@ public class UDP_Sender implements Runnable, Closeable {
                 try{
                     this.outSocket.send(p.serialize(this.address, this.peerPort));
                 }
-                catch(IllegalOpCodeException e){
+                catch(IllegalPacketException e){
                     continue;
                 }
 
@@ -125,7 +125,7 @@ public class UDP_Sender implements Runnable, Closeable {
                         Thread.sleep(ESTIMATED_RTT);   //wait for ACKs
                 }
                 fcr.close();
-                this.tracker.log(filename + " foi enviado com sucesso");
+                this.tracker.log("<b>"+filename + " foi enviado com sucesso </b>");
             }
         }
         catch(IOException | InterruptedException e){}
@@ -162,7 +162,7 @@ public class UDP_Sender implements Runnable, Closeable {
             try{
                 dp = p.serialize(this.address, this.peerPort);
             }
-            catch(IllegalOpCodeException e){}
+            catch(IllegalPacketException e){}
         return dp;
     }
 

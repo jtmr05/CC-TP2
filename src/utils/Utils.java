@@ -69,7 +69,7 @@ public class Utils {
         char[] hexValues = "0123456789abcdef".toCharArray();
         char[] hexCharacter = new char[len * 2];
 
-        for (int i = 0; i < len; i++) {
+        for(int i = 0; i < len; i++){
             int aux = arr[i] + Byte.MAX_VALUE;
             int v = aux & 0xFF;
             hexCharacter[i * 2] = hexValues[v >>> 4];
@@ -88,16 +88,11 @@ public class Utils {
     }
 
     public String getInstant(long t){
-        
         String ldt = Instant.ofEpochMilli(t).
                              atZone(ZoneId.systemDefault()).
                              toLocalDateTime().
                              toString().
                              split("T")[1];
-    
         return ldt;
     }
-
-
-
 }
