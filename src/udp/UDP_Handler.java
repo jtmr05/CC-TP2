@@ -28,8 +28,11 @@ public class UDP_Handler implements Runnable {
     @Override
     public void run(){
 
+        Packet p = null;
         try{
-            Packet p = Packet.deserialize(this.received);
+            System.out.println(Thread.currentThread().getName());
+            p = Packet.deserialize(this.received);
+            System.out.println(p.getOpcode());
             String key = p.getMD5Hash();
 
             switch(p.getOpcode()){
@@ -38,7 +41,7 @@ public class UDP_Handler implements Runnable {
                     this.tracker.putInRemote(key, p);
                     
                 case DATA_TRANSFER -> {
-                    this.tracker.log("packet received with sequence number "+p.getSequenceNumber());
+                    this.tracker.log("Pacote recebido com numero de sequencia: "+p.getSequenceNumber());
                     var fcw = this.tracker.getChunkWriter(key);
                     try{
                         short seqNum = p.getSequenceNumber();
@@ -63,25 +66,26 @@ public class UDP_Handler implements Runnable {
 
                         if(!p.getHasNext() && fcw.isEmpty()){
                             this.tracker.removeChunkWriter(key);
-                            this.tracker.log("<b>"+this.tracker.getRemoteFilename(key) + " was received and saved </b>");
+                            this.tracker.log("<b>"+this.tracker.getRemoteFilename(key) + " foi recebido e guardado </b>");
                         }
                     }
-                    catch(IOException e){}
+                    catch(IOException e){System.out.println("\nIIIIIOOOOOOO EXCEPTION");}
                 }
 
                 case ACK -> {
-                    long timestamp = p.getTimestamp(); 
-                    RTT.add(timestamp);
-                    this.tracker.ack(key, p.getSequenceNumber(), timestamp);
+                    if(p.getSequenceNumber() >= 0){
+                        long timestamp = p.getTimestamp(); 
+                        RTT.add(timestamp);
+                        this.tracker.ack(key, p.getSequenceNumber(), timestamp);
+                    }
                 }
 
-                default -> {}
+                default -> {System.out.println("DEFAULTTTTTTTTTTTTTTTTTTTTTTTTT");}
             }
         }
         catch (IllegalPacketException e){
-            System.out.println("\t\tEXECECAO MANERAAA");
+            System.out.println("\t\t"+p.getOpcode()+" EXECECAO");
         } //ignore any other opcode
- 
     }
 
 
@@ -90,7 +94,7 @@ public class UDP_Handler implements Runnable {
         ds.send(p.serialize(this.address, this.peerPort));
         Utils u = new Utils();
         String ldt = u.getInstant(p.getTimestamp());
-        this.tracker.log(ldt + " -> sending ack " + p.getSequenceNumber());
+        this.tracker.log(ldt + " -> enviando ack " + p.getSequenceNumber());
         System.out.println("sending ack");
         ds.close();
     }

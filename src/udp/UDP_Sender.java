@@ -59,26 +59,36 @@ public class UDP_Sender implements Runnable, Closeable {
 
     private void sendMetadata() throws InterruptedException{
         List<Packet> toSendMetadata = this.tracker.toSendMetadataList();
-        final int size = toSendMetadata.size();
+        int size = toSendMetadata.size();
+        
+        if(size == 0)
+        try{
+            toSendMetadata.add(new Packet(ACK, (short) -1, "abcdef0123456789abcdef0123456789"));
+            size++;
+        } 
+        catch(IllegalPacketException e){}
+        
         System.out.println("about to start to send metadata ("+size+" item(s))");
-
         try{
             int i = 0;
             while(i < size){
                 Packet p = toSendMetadata.get(i);
                 System.out.println("\t"+p.getMD5Hash());
                 if(i==(size-1)) Thread.sleep(2000);
+                else Thread.sleep(100);
                 try{
+                    
                     this.outSocket.send(p.serialize(this.address, this.peerPort));
                 }
                 catch(IllegalPacketException e){
                     continue;
                 }
 
-                if(this.isAlive)
-                    i++;
-                else
+                if(!this.isAlive)
+                    //i++;
+                //else
                     this.timeout();
+                i++;
             }
         }
         catch(IOException e){}
@@ -136,7 +146,7 @@ public class UDP_Sender implements Runnable, Closeable {
             var dp = this.nextDatagramPacket(hash, seqNum, fcr);
             if(dp != null){
                 this.outSocket.send(dp);
-                this.tracker.log("packet sent with sequence number: "+seqNum);
+                this.tracker.log("Pacote enviado com numero de sequencia: "+seqNum);
                 System.out.println("sending "+hash+" packet with "+seqNum);
                 seqNum++;
             }

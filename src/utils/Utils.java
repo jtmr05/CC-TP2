@@ -70,7 +70,7 @@ public class Utils {
         char[] hexCharacter = new char[len * 2];
 
         for(int i = 0; i < len; i++){
-            int aux = arr[i] + Byte.MAX_VALUE;
+            int aux = arr[i] + Byte.MAX_VALUE + 1;
             int v = aux & 0xFF;
             hexCharacter[i * 2] = hexValues[v >>> 4];
             hexCharacter[i * 2 + 1] = hexValues[v & 0x0F];
@@ -82,7 +82,7 @@ public class Utils {
         byte[] arr = new byte[s.length() / 2];
 
         for(int i = 0, j = 0; j < arr.length; i += 2, j++)
-            arr[j] = (byte) (Short.parseShort(s.substring(i, i+2), 16) - Byte.MAX_VALUE);
+            arr[j] = (byte) (Short.parseShort(s.substring(i, i+2), 16) - (Byte.MAX_VALUE + 1));
 
         return arr;
     }
@@ -94,5 +94,13 @@ public class Utils {
                              toString().
                              split("T")[1];
         return ldt;
+    }
+}
+
+class Main{
+    public static void main(String[] args) {
+        Utils u = new Utils();
+        byte[] b = u.hexStrToBytes("0087ff");
+        System.out.println(u.bytesToHexStr(b));
     }
 }

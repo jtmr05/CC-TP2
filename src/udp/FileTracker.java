@@ -83,7 +83,7 @@ public class FileTracker implements Closeable {
         String ldt = u.getInstant(timestamp);
         this.ackCond.signalAll();
         
-        this.log(ldt + " -> receiving ack " + seqNum);
+        this.log(ldt + " -> recebendo ack " + seqNum);
         
         if(seqNum == at.currentSequenceNumber){
             at.sent.remove(seqNum);
@@ -178,7 +178,7 @@ public class FileTracker implements Closeable {
 
     public String getRemoteFilename(String id){
         this.remoteLock.lock();
-        System.out.println("{{{{{{{{"+this.remote.keySet());
+        //System.out.println("{{{{{{{{"+this.remote.keySet());
         Packet p = this.remote.get(id);
         String filename;
         if(p!=null)

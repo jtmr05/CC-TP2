@@ -4,7 +4,6 @@ import java.io.*;
 import java.net.Socket;
 import java.util.Date;
 
-import packet.Packet;
 import udp.FileTracker;
 import utils.Utils;
 
@@ -66,16 +65,6 @@ public class TCP_Handler implements Runnable {
                         while(iter.hasNext())
                             body.append(iter.next() + "<br>");
 
-                        body.append("<span></html>");
-
-                        break;
-
-                    case "/missing":
-
-                        body.append("<html><title>Missing</title><span>");
-                        for(Packet p : this.f.toSendSet()){
-                            body.append(p.getFilename()+"<br>");
-                        }
                         body.append("<span></html>");
 
                         break;

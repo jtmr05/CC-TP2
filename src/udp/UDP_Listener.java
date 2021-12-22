@@ -42,7 +42,7 @@ public class UDP_Listener implements Runnable, Closeable {
                 this.inSocket.receive(inPacket);
                 this.udpSender.signal(); //it's important that the received packet is treated
                 
-                System.out.println("i hab gift");
+                System.out.println("i have gift");
                 
                 Thread handlerThread = new Thread(
                     new UDP_Handler(inPacket, this.dir, this.tracker,
