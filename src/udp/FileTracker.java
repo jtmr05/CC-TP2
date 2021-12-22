@@ -15,6 +15,7 @@ import static packet.Consts.*;
 import static udp.RTT.*;
 import packet.*;
 import utils.FileChunkWriter;
+import utils.Utils;
 
 public class FileTracker implements Closeable {
 
@@ -75,16 +76,19 @@ public class FileTracker implements Closeable {
         }
     }
 
-    protected void ack(String id, short seqNum){
+    protected void ack(String id, short seqNum, long timestamp){
         this.ackLock.lock();
         AckTracker at = this.acks.get(id);
-        at.sent.remove(seqNum);
+        Utils u = new Utils();
+        String ldt = u.getInstant(timestamp);
         this.ackCond.signalAll();
-
-        //while(!at.sent.containsKey(at.currentSequenceNumber) &&
-        //       at.currentSequenceNumber < at.biggest)
-        if(seqNum==at.currentSequenceNumber)
+        
+        this.log(ldt + " -> receiving ack " + seqNum);
+        
+        if(seqNum == at.currentSequenceNumber){
+            at.sent.remove(seqNum);
             at.currentSequenceNumber++;
+        }
 
         this.ackLock.unlock();
     }
@@ -175,7 +179,11 @@ public class FileTracker implements Closeable {
     public String getRemoteFilename(String id){
         this.remoteLock.lock();
         System.out.println("{{{{{{{{"+this.remote.keySet());
-        String filename = this.remote.get(id).getFilename();
+        Packet p = this.remote.get(id);
+        String filename;
+        if(p!=null)
+            filename = p.getFilename();
+        else filename = null;
         this.remoteLock.unlock();
         return filename;
     }
@@ -188,7 +196,7 @@ public class FileTracker implements Closeable {
                                       collect(Collectors.toList());
             final int size = files.size();
             System.out.println("SIZESIZESIZE "+size);
-            
+
 
             try{
                 this.localLock.lock();
@@ -201,8 +209,7 @@ public class FileTracker implements Closeable {
 
                     if(!this.local.containsKey(key)){
                         boolean hasNext = i != (size-1);
-                        Packet p = new Packet(FILE_META, key, meta.lastModifiedTime().toMillis(),
-                                              f.getName(), hasNext);
+                        Packet p = new Packet(FILE_META, key, f.getName(), hasNext);
 
                         this.local.put(key, p);
                     }
@@ -249,8 +256,8 @@ public class FileTracker implements Closeable {
             this.remoteCond.signalAll();
 
         boolean b = this.remote.put(key, value) != null;
-        this.remoteLock.unlock();
         System.out.println("CHAVES: " + this.remote.keySet());
+        this.remoteLock.unlock();
 
         return b;
     }
@@ -260,21 +267,25 @@ public class FileTracker implements Closeable {
      * @return The set of metadata packets
      */
     public Set<Packet> toSendSet(){
+        
         System.out.println("AINDA MAIS CHAVES: "+this.remote.keySet());
         this.localLock.lock();
         var localSet = this.local.entrySet();
         this.remoteLock.lock();
         this.localLock.unlock();
-
+        
         try{
+            
             while(this.hasNext)
                 this.remoteCond.await();
+            
+            System.out.println("ANTES->"+this.remote.keySet());
 
             var ret = localSet.stream().
                                filter(e -> !this.remote.containsKey(e.getKey())).
                                map(Entry::getValue).
                                collect(Collectors.toCollection(HashSet::new));
-            
+
             System.out.println("AQUI VAI: "+this.local.keySet());
             System.out.println(this.remote.keySet());
 
@@ -308,7 +319,6 @@ public class FileTracker implements Closeable {
 
         this.remoteLock.unlock();
         list.sort((p1, p2) -> Boolean.compare(p2.getHasNext(), p1.getHasNext())); //false comes last
-        list.forEach(a -> System.out.println(a.getHasNext()));
         return list;
     }
 

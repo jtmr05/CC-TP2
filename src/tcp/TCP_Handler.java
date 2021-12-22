@@ -64,7 +64,7 @@ public class TCP_Handler implements Runnable {
                         body.append("<html><title>Logs</title><span>");
                         var iter = this.f.logsIter();
                         while(iter.hasNext())
-                            body.append(iter.next());
+                            body.append(iter.next() + "<br>");
 
                         body.append("<span></html>");
 

@@ -36,8 +36,9 @@ public class UDP_Handler implements Runnable {
 
                 case FILE_META ->
                     this.tracker.putInRemote(key, p);
-
+                    
                 case DATA_TRANSFER -> {
+                    this.tracker.log("packet received with sequence number "+p.getSequenceNumber());
                     var fcw = this.tracker.getChunkWriter(key);
                     try{
                         short seqNum = p.getSequenceNumber();
@@ -45,42 +46,49 @@ public class UDP_Handler implements Runnable {
                             System.out.println("\tDENTRO DO IF: "+seqNum);
                             System.out.println("-\t>>>>>>>>>>>>>>>>>>"+key);
                             String filename = this.tracker.getRemoteFilename(key);
+                            if(filename==null) break;
                             String dirPath = this.dir.getAbsolutePath();
                             String filePath = new StringBuilder(dirPath).append("/").append(filename).toString();
                             fcw = FileChunkWriter.factory(filePath);
                             this.tracker.putChunkWriter(key, fcw);
-                            this.tracker.log(filename + " was received and saved");
+                            
                         }
 
                         System.out.println("---->"+seqNum+"\t"+Thread.currentThread().getName());
                         int off = (seqNum - INIT_SEQ_NUMBER) * DATA_SIZE;
                         
                         fcw.writeChunk(p.getData(), off);
-                        this.sendAck(new Packet(ACK, seqNum, key));
+                        Packet ack = new Packet(ACK, seqNum, key);
+                        this.sendAck(ack);
 
-                        if(!p.getHasNext() && fcw.isEmpty())
+                        if(!p.getHasNext() && fcw.isEmpty()){
                             this.tracker.removeChunkWriter(key);
-
-                        this.tracker.log(p.getFilename() + " was updated");
+                            this.tracker.log(this.tracker.getRemoteFilename(key) + " was received and saved");
+                        }
                     }
                     catch(IOException e){}
                 }
 
                 case ACK -> {
-                    RTT.add(p.getTimestamp());
-                    this.tracker.ack(key, p.getSequenceNumber());
+                    long timestamp = p.getTimestamp(); 
+                    RTT.add(timestamp);
+                    this.tracker.ack(key, p.getSequenceNumber(), timestamp);
                 }
 
                 default -> {}
             }
         }
         catch (IllegalOpCodeException e){} //ignore any other opcode
+ 
     }
 
 
     private void sendAck(Packet p) throws IOException, IllegalOpCodeException {
         var ds = new DatagramSocket();
         ds.send(p.serialize(this.address, this.peerPort));
+        Utils u = new Utils();
+        String ldt = u.getInstant(p.getTimestamp());
+        this.tracker.log(ldt + " -> sending ack " + p.getSequenceNumber());
         System.out.println("sending ack");
         ds.close();
     }

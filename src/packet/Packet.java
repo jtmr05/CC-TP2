@@ -6,6 +6,8 @@ import java.util.Arrays;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import static packet.Consts.*;
 import utils.*;
 
@@ -15,8 +17,6 @@ public class Packet {
     private final byte opcode;
     /** md5 hash produced from the file's metadata (CreationDate and Filename) */
     private final String md5hash;
-    /** Epoch time of the last time file was updated*/
-    private final long lastUpdated;
     /** Epoch time of the files creation date */
     private final boolean hasNext;
     /** The chunk sequence number*/
@@ -27,39 +27,53 @@ public class Packet {
     private final byte[] data;
     /** Timestamp used to calculate RTT */
     private final long timestamp;
+    /** HMAC */
+    private final String hmac;
 
     //FILE_META
-    public Packet(byte opcode, String md5hash, long lastUpdated, String filename, boolean hasNext){
+    public Packet(byte opcode, String md5hash, String filename, boolean hasNext, String hmac){
         this.opcode = opcode;
         this.md5hash = md5hash;
-        this.lastUpdated = lastUpdated;
         this.hasNext = hasNext;
         this.filename = filename;
+        this.hmac = hmac;
+
+        this.timestamp = this.sequenceNumber = -1;
+        this.data = null;
+    }
+    
+    public Packet(byte opcode, String md5hash, String filename, boolean hasNext, String hmac){
+        this.opcode = opcode;
+        this.md5hash = md5hash;
+        this.hasNext = hasNext;
+        this.filename = filename;
+        this.hmac = hmac;
 
         this.timestamp = this.sequenceNumber = -1;
         this.data = null;
     }
 
     //DATA_TRANSFER
-    public Packet(byte opcode, short sequenceNumber, String md5hash, boolean hasNext, byte[] data){
+    public Packet(byte opcode, short sequenceNumber, String md5hash, boolean hasNext, byte[] data, String hmac){
         this.opcode = opcode;
         this.sequenceNumber = sequenceNumber;
         this.md5hash = md5hash;
         this.hasNext = hasNext;
         this.data = data;
+        this.hmac = hmac;
 
-        this.lastUpdated = this.timestamp = -1;
+        this.timestamp = -1;
         this.filename = null;
     }
 
     //ACK
-    public Packet(byte opcode, short sequenceNumber, String md5hash, long timestamp){
+    public Packet(byte opcode, short sequenceNumber, String md5hash, long timestamp, String hmac){
         this.opcode = opcode;
         this.sequenceNumber = sequenceNumber;
         this.md5hash = md5hash;
         this.timestamp = timestamp;
+        this.hmac = hmac;
 
-        this.lastUpdated = -1;
         this.hasNext = false;
         this.filename = (String) (Object) (this.data = null);
     }
@@ -74,10 +88,6 @@ public class Packet {
 
     public String getMD5Hash(){
         return this.md5hash;
-    }
-
-    public long getLastUpdated(){
-        return this.lastUpdated;
     }
 
     public boolean getHasNext(){
@@ -127,10 +137,6 @@ public class Packet {
                 System.arraycopy(data, pos, md5hash, 0, md5hash.length);
                 pos += md5hash.length;
 
-                byte[] lastUpdated = new byte[LAST_UP_SIZE];
-                System.arraycopy(data, pos, lastUpdated, 0, lastUpdated.length);
-                pos += lastUpdated.length;
-
                 byte[] nameSize = new byte[NAME_SIZE_SIZE];
                 System.arraycopy(data, pos, nameSize, 0, nameSize.length);
                 pos += nameSize.length;
@@ -139,10 +145,11 @@ public class Packet {
                 System.arraycopy(data, pos, filename, 0, filename.length);
                 pos += filename.length;
 
-                boolean hasNext = data[pos] != 0;
+                boolean hasNext = data[pos++] != 0;
 
-                p = new Packet(FILE_META, u.bytesToHexStr(md5hash), u.bytesToLong(lastUpdated),
-                               new String(filename, UTF_8), hasNext);
+                byte[] hmac = new byte[]
+
+                p = new Packet(FILE_META, u.bytesToHexStr(md5hash), new String(filename, UTF_8), hasNext);
             }
 
             case DATA_TRANSFER -> {
@@ -218,10 +225,6 @@ public class Packet {
                 System.arraycopy(md5hash, 0, data, pos, md5hash.length);
                 pos += md5hash.length;
 
-                byte[] lastUpdated = u.longToBytes(this.lastUpdated);
-                System.arraycopy(lastUpdated, 0, data, pos, lastUpdated.length);
-                pos += lastUpdated.length;
-
                 byte[] filenameLength = u.intToBytes(this.filename.length());
                 System.arraycopy(filenameLength, 0, data, pos, filenameLength.length);
                 pos += filenameLength.length;
@@ -280,4 +283,14 @@ public class Packet {
         }
         return new DatagramPacket(data, MAX_PACKET_SIZE, ip, port);
     }
+
+        /*
+    public static byte[] calculateHMAC(byte[] msg) 
+    throws SignatureException, NoSuchAlgorithmException, InvalidKeyException {
+            SecretKeySpec sk = new SecretKeySpec(KEY.getBytes(), HMAC_SHA1_ALGORITHM);;
+            Mac mac = Mac.getInstance(HMAC_SHA1_ALGORITHM);
+            mac.init(sk);
+            return mac.doFinal(msg);    
+    }    
+*/
 }

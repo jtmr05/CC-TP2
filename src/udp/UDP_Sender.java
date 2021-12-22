@@ -57,7 +57,7 @@ public class UDP_Sender implements Runnable, Closeable {
         catch(InterruptedException e){}
     }
 
-    private void sendMetadata(){//ter os envios dos metadados no log???
+    private void sendMetadata() throws InterruptedException{
         List<Packet> toSendMetadata = this.tracker.toSendMetadataList();
         final int size = toSendMetadata.size();
         System.out.println("about to start to send metadata ("+size+" item(s))");
@@ -67,6 +67,7 @@ public class UDP_Sender implements Runnable, Closeable {
             while(i < size){
                 Packet p = toSendMetadata.get(i);
                 System.out.println("\t"+p.getMD5Hash());
+                if(i==(size-1)) Thread.sleep(2000);
                 try{
                     this.outSocket.send(p.serialize(this.address, this.peerPort));
                 }
@@ -96,7 +97,7 @@ public class UDP_Sender implements Runnable, Closeable {
                 toSendData.remove(0);
                 String filename = p.getFilename(), hash = p.getMD5Hash();
                 FileChunkReader fcr = new FileChunkReader(filename, this.dir);
-                int windowSize = 1, numOfTries = 0;
+                int numOfTries = 0;
                 System.out.println("\t"+hash);
 
                 while((!fcr.isFinished()) || (!this.tracker.isEmpty(hash))){
@@ -104,16 +105,13 @@ public class UDP_Sender implements Runnable, Closeable {
                     short curr = this.tracker.getCurrentSequenceNumber(hash);
                     System.out.println("\t\texpected: "+seqNum+" got: "+curr);
 
-                    if((seqNum - curr) == 0){
-                        //windowSize *= 2;
+                    if(seqNum == curr)
                         numOfTries = 0;
-                    }
-                    else{
-                        //windowSize = 1;
+                    else
                         seqNum = curr;
-                    }
+                    
                     short temp = seqNum;
-                    seqNum = this.send(windowSize, seqNum, hash, fcr);
+                    seqNum = this.send(seqNum, hash, fcr);
                     if(seqNum == temp)
                         break;
 
@@ -124,7 +122,7 @@ public class UDP_Sender implements Runnable, Closeable {
                         numOfTries = 0;
                     }
                     else
-                        Thread.sleep(ESTIMATED_RTT * windowSize);   //wait for ACKs
+                        Thread.sleep(ESTIMATED_RTT);   //wait for ACKs
                 }
                 fcr.close();
                 this.tracker.log(filename + " foi enviado com sucesso");
@@ -133,16 +131,15 @@ public class UDP_Sender implements Runnable, Closeable {
         catch(IOException | InterruptedException e){}
     }
 
-    private short send(int windowSize, short seqNum, String hash, FileChunkReader fcr) throws IOException {
-        for(int j = 0; j < windowSize && !fcr.isFinished(); j++){
+    private short send(short seqNum, String hash, FileChunkReader fcr) throws IOException {
+        if(!fcr.isFinished()){
             var dp = this.nextDatagramPacket(hash, seqNum, fcr);
             if(dp != null){
                 this.outSocket.send(dp);
+                this.tracker.log("packet sent with sequence number: "+seqNum);
                 System.out.println("sending "+hash+" packet with "+seqNum);
                 seqNum++;
             }
-            else
-                break;
         }
         return seqNum;
     }

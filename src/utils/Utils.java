@@ -2,14 +2,13 @@ package utils;
 
 import java.io.*;
 import java.nio.ByteBuffer;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
+import java.time.Instant;
+import java.time.ZoneId;
 
 public class Utils {
 
     public Utils(){}
 
-    private static final String PROTOCOL_PATH = "/home/diogobarbosa/3º ano/CC/CC-TP2/src/utils/ProtocolDescription.txt";
 
     public short bytesToShort(byte[] bytes) {
         ByteBuffer buffer = ByteBuffer.allocate(Short.BYTES);
@@ -87,4 +86,18 @@ public class Utils {
 
         return arr;
     }
+
+    public String getInstant(long t){
+        
+        String ldt = Instant.ofEpochMilli(t).
+                             atZone(ZoneId.systemDefault()).
+                             toLocalDateTime().
+                             toString().
+                             split("T")[1];
+    
+        return ldt;
+    }
+
+
+
 }

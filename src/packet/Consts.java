@@ -11,18 +11,16 @@ public final class Consts {
     public static final byte ACK = 3;
 
     static final int HASH_SIZE = 16;
-    static final int LAST_UP_SIZE = Long.BYTES;
     static final int SEQ_NUM_SIZE = Short.BYTES;
     static final int NAME_SIZE_SIZE = Integer.BYTES;
     static final int DATA_SIZE_SIZE = Short.BYTES;
     static final int TIMESTAMP_SIZE = Long.BYTES;
-    public static final int DATA_SIZE = MAX_PACKET_SIZE - (1 + SEQ_NUM_SIZE + HASH_SIZE + 1 + DATA_SIZE_SIZE);
-    public int a = Short.MAX_VALUE;
+    static final int HMAC_SIZE = 20;
+    public static final int DATA_SIZE = MAX_PACKET_SIZE - (1 + SEQ_NUM_SIZE + 
+                                                           HASH_SIZE + 1 + DATA_SIZE_SIZE + HMAC_SIZE);
+    
     public static final short INIT_SEQ_NUMBER = 0;//Short.MIN_VALUE;
 
-    //Mensagens dos logs
-
-    //public final String FILE_ENVIAVA = "File sent";
-
-
+    static final String HMAC_SHA1_ALGORITHM = "HmacSHA1";
+    static final String KEY = "CC-LEI";
 }
