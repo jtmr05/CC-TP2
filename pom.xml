@@ -40,18 +40,6 @@
                     </configuration>
                 </plugin>
                 <plugin>
-                    <artifactId>maven-jar-plugin</artifactId>
-                    <version>3.0.2</version>
-                    <configuration>
-                        <finalName>FFSyncLocal</finalName>
-                        <archive>
-                            <manifest>
-                                <mainClass>FFSyncLocal</mainClass>
-                            </manifest>
-                        </archive>
-                    </configuration>
-                </plugin>
-                <plugin>
                     <artifactId>maven-deploy-plugin</artifactId>
                     <version>2.8.2</version>
                 </plugin>
