@@ -26,7 +26,7 @@ public class FFSync {
                 var udp_listener = new UDP_Listener(localPort, address, peerPort, dir, f);
                 Thread tcp_thread = new Thread(tcp_listener);
                 Thread udp_thread = new Thread(udp_listener);
-
+                
                 tcp_thread.start();
                 udp_thread.start();
             }
