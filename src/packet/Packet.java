@@ -2,10 +2,16 @@ package packet;
 
 import java.net.DatagramPacket;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.SignatureException;
 import java.util.Arrays;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import static packet.Consts.*;
 import utils.*;
 
@@ -13,13 +19,9 @@ public class Packet {
 
     /** The operation code as defined in {@linkplain Consts} */
     private final byte opcode;
-    /** md5 hash produced from the file's metadata (CreationDate and Filename) */
+    /** md5 hash produced from the file's metadata (filename) */
     private final String md5hash;
-    /** Epoch time of the last time file was updated*/
-    private final long lastUpdated;
     /** Epoch time of the files creation date */
-    private final long creationDate;
-    /** This attribute tells us if this is the last file*/
     private final boolean hasNext;
     /** The chunk sequence number*/
     private final short sequenceNumber;
@@ -29,17 +31,39 @@ public class Packet {
     private final byte[] data;
     /** Timestamp used to calculate RTT */
     private final long timestamp;
-
+    /** HMAC */
+    private final String hmac;
 
     //FILE_META
-    public Packet(byte opcode, String md5hash, long lastUpdated, long creationDate, String filename,
-                  boolean hasNext){
+    public Packet(byte opcode, String md5hash, String filename, boolean hasNext) throws IllegalPacketException {
         this.opcode = opcode;
         this.md5hash = md5hash;
-        this.lastUpdated = lastUpdated;
-        this.creationDate = creationDate;
         this.hasNext = hasNext;
         this.filename = filename;
+
+        this.timestamp = this.sequenceNumber = -1;
+        this.data = null;
+        
+        byte[] data = new byte[MAX_PACKET_SIZE];
+        Utils u = new Utils();
+        data[0] = this.opcode;
+        int pos = this.serializeFileMeta(data, 1, u);
+        Arrays.fill(data, pos, data.length, (byte) 0);
+        try{
+            this.hmac = u.bytesToHexStr(calculateHMAC(data));
+        }
+        catch(NoSuchAlgorithmException | SignatureException | InvalidKeyException e){
+            System.out.println("falhou aqui nestas 3 javardas");
+            throw new IllegalPacketException();
+        }
+    }
+
+    public Packet(byte opcode, String md5hash, String filename, boolean hasNext, String hmac){
+        this.opcode = opcode;
+        this.md5hash = md5hash;
+        this.hasNext = hasNext;
+        this.filename = filename;
+        this.hmac = hmac;
 
         this.timestamp = this.sequenceNumber = -1;
         this.data = null;
@@ -53,29 +77,45 @@ public class Packet {
         this.hasNext = hasNext;
         this.data = data;
 
-        this.lastUpdated = this.creationDate = this.timestamp = -1;
+        this.hmac = null;
+        this.timestamp = -1;
         this.filename = null;
     }
 
     //ACK
-    public Packet(byte opcode, short sequenceNumber, String md5hash, long timestamp){
+    public Packet(byte opcode, short sequenceNumber, String md5hash, long timestamp) throws IllegalPacketException {
         this.opcode = opcode;
         this.sequenceNumber = sequenceNumber;
         this.md5hash = md5hash;
         this.timestamp = timestamp;
-
-        this.lastUpdated = this.creationDate = -1;
         this.hasNext = false;
         this.filename = (String) (Object) (this.data = null);
+
+        byte[] data = new byte[MAX_PACKET_SIZE];
+        Utils u = new Utils();
+        data[0] = this.opcode;
+        this.serializeAck(data, 1, u);
+        
+        try{
+            this.hmac = u.bytesToHexStr(calculateHMAC(data));
+        }
+        catch(NoSuchAlgorithmException | SignatureException | InvalidKeyException e){
+            System.out.println("falhou aqui nestas 3 javardas");
+            throw new IllegalPacketException();
+        }
     }
 
-    public Packet(byte opcode, short sequenceNumber, String md5hash){
+    public Packet(byte opcode, short sequenceNumber, String md5hash) throws IllegalPacketException {
+        this(opcode, sequenceNumber, md5hash, System.currentTimeMillis());        
+    }
+
+    private Packet(byte opcode, short sequenceNumber, String md5hash, long timestamp, String hmac){
         this.opcode = opcode;
         this.sequenceNumber = sequenceNumber;
         this.md5hash = md5hash;
-        this.timestamp = System.currentTimeMillis();
+        this.timestamp = timestamp;
+        this.hmac = hmac;
 
-        this.lastUpdated = this.creationDate = -1;
         this.hasNext = false;
         this.filename = (String) (Object) (this.data = null);
     }
@@ -86,14 +126,6 @@ public class Packet {
 
     public String getMD5Hash(){
         return this.md5hash;
-    }
-
-    public long getLastUpdated(){
-        return this.lastUpdated;
-    }
-
-    public long getCreationDate(){
-        return this.creationDate;
     }
 
     public boolean getHasNext(){
@@ -118,6 +150,10 @@ public class Packet {
         return this.timestamp;
     }
 
+    public String getHmac(){
+        return this.hmac;
+    }
+
     /**
      * Returns a new packet from the given {@code dp}.
      *
@@ -126,10 +162,10 @@ public class Packet {
      *
      * @return  The new Packet instance
      *
-     * @throws  IllegalOpCodeException
+     * @throws  IllegalPacketException
      *          If the read op code is unknown
      */
-    public static Packet deserialize(DatagramPacket dp) throws IllegalOpCodeException {
+    public static Packet deserialize(DatagramPacket dp) throws IllegalPacketException {
 
         byte[] data = dp.getData();
         Packet p;
@@ -143,14 +179,6 @@ public class Packet {
                 System.arraycopy(data, pos, md5hash, 0, md5hash.length);
                 pos += md5hash.length;
 
-                byte[] lastUpdated = new byte[LAST_UP_SIZE];
-                System.arraycopy(data, pos, lastUpdated, 0, lastUpdated.length);
-                pos += lastUpdated.length;
-
-                byte[] creationDate = new byte[CREATION_SIZE];
-                System.arraycopy(data, pos, creationDate, 0, creationDate.length);
-                pos += creationDate.length;
-
                 byte[] nameSize = new byte[NAME_SIZE_SIZE];
                 System.arraycopy(data, pos, nameSize, 0, nameSize.length);
                 pos += nameSize.length;
@@ -159,10 +187,29 @@ public class Packet {
                 System.arraycopy(data, pos, filename, 0, filename.length);
                 pos += filename.length;
 
-                boolean hasNext = data[pos] != 0;
+                boolean hasNext = data[pos++] != 0;
 
-                p = new Packet(FILE_META, new String(md5hash, UTF_8), u.bytesToLong(lastUpdated),
-                               u.bytesToLong(creationDate), new String(filename, UTF_8), hasNext);
+                byte[] hmac = new byte[HMAC_SIZE];
+                System.arraycopy(data, pos, hmac, 0, hmac.length);
+                Arrays.fill(data, pos, data.length, (byte) 0);
+
+                System.out.println(FILE_META +" "+ u.bytesToHexStr(md5hash)+" "+ new String(filename, UTF_8)+" "+ 
+                               hasNext+" "+ u.bytesToHexStr(hmac));
+                p = new Packet(FILE_META, u.bytesToHexStr(md5hash), new String(filename, UTF_8), 
+                               hasNext, u.bytesToHexStr(hmac));
+                
+
+                try{
+                    String expectedHmac = u.bytesToHexStr(calculateHMAC(data));
+                    System.out.println("expected: "+expectedHmac);
+                    System.out.println("got: " +p.getHmac());
+
+                    if(!p.getHmac().equals(expectedHmac))                        
+                        throw new IllegalPacketException();
+                }
+                catch(NoSuchAlgorithmException | InvalidKeyException | SignatureException e){
+                    throw new IllegalPacketException();
+                }
             }
 
             case DATA_TRANSFER -> {
@@ -181,10 +228,10 @@ public class Packet {
                 System.arraycopy(data, pos, dataSize, 0, dataSize.length);
                 pos += dataSize.length;
 
-                byte[] data__ = new byte[u.bytesToInt(dataSize)];
+                byte[] data__ = new byte[(int) u.bytesToShort(dataSize)];
                 System.arraycopy(data, pos, data__, 0, data__.length);
 
-                p = new Packet(DATA_TRANSFER, u.bytesToShort(seqNum), new String(md5hash, UTF_8),
+                p = new Packet(DATA_TRANSFER, u.bytesToShort(seqNum), u.bytesToHexStr(md5hash),
                                hasNext, data__);
             }
 
@@ -199,13 +246,29 @@ public class Packet {
 
                 byte[] timestamp = new byte[TIMESTAMP_SIZE];
                 System.arraycopy(data, pos, timestamp, 0, timestamp.length);
+                pos += timestamp.length;
 
-                p = new Packet(ACK, u.bytesToShort(seqNum), new String(md5hash, UTF_8),
-                               u.bytesToLong(timestamp));
+                byte[] hmac = new byte[HMAC_SIZE];
+                System.arraycopy(data, pos, hmac, 0, hmac.length);
+                Arrays.fill(data, pos, data.length, (byte) 0);
+
+                p = new Packet(ACK, u.bytesToShort(seqNum), u.bytesToHexStr(md5hash),
+                               u.bytesToLong(timestamp),  u.bytesToHexStr(hmac));
+
+                try{
+                    String expectedHmac = u.bytesToHexStr(calculateHMAC(data));
+
+                    if(!p.getHmac().equals(expectedHmac))                        
+                        throw new IllegalPacketException();
+                }
+                catch(NoSuchAlgorithmException | InvalidKeyException | SignatureException e){
+                    throw new IllegalPacketException();
+                }
+                
             }
 
             default ->
-                throw new IllegalOpCodeException();
+                throw new IllegalPacketException();
         }
         return p;
     }
@@ -220,10 +283,10 @@ public class Packet {
      *
      * @return  The new datagram packet
      *
-     * @throws  IllegalOpCodeException
+     * @throws  IllegalPacketException
      *          If this object's {@code opcode} is unknown
      */
-    public DatagramPacket serialize(InetAddress ip, int port) throws IllegalOpCodeException {
+    public DatagramPacket serialize(InetAddress ip, int port) throws IllegalPacketException {
 
         byte[] data = new byte[MAX_PACKET_SIZE];
         data[0] = this.opcode;
@@ -234,48 +297,28 @@ public class Packet {
 
             case FILE_META -> {
 
-                byte[] strToBytes = this.md5hash.getBytes(UTF_8);
-                System.arraycopy(strToBytes, 0, data, pos, this.md5hash.length());
-                pos += this.md5hash.length();
+                pos = this.serializeFileMeta(data, pos, u);
 
-                byte[] longBytes = u.longToBytes(this.lastUpdated);
-                System.arraycopy(longBytes, 0, data, pos, longBytes.length);
-                pos += longBytes.length;
-
-                byte[] longBytes_ = u.longToBytes(this.creationDate);
-                System.arraycopy(longBytes_, 0, data, pos, longBytes_.length);
-                pos += longBytes_.length;
-
-                byte[] intBytes = u.intToBytes(this.filename.length());
-                System.arraycopy(intBytes, 0, data, pos, intBytes.length);
-                pos += intBytes.length;
-
-                byte[] filename = this.filename.getBytes(UTF_8);
-                System.arraycopy(filename, 0, data, pos, filename.length);
-                pos += filename.length;
-
-                data[pos] = (byte) (this.hasNext ? 1 : 0);
-                pos++;
-
-                Arrays.fill(data, pos, data.length, (byte) 0);
+                byte[] hmac = u.hexStrToBytes(this.hmac);
+                System.arraycopy(hmac, 0, data, pos, hmac.length);
             }
 
             case DATA_TRANSFER -> {
 
-                byte[] shortBytes = u.shortToBytes(this.sequenceNumber);
-                System.arraycopy(shortBytes, 0, data, pos, shortBytes.length);
-                pos += shortBytes.length;
+                byte[] seqNum = u.shortToBytes(this.sequenceNumber);
+                System.arraycopy(seqNum, 0, data, pos, seqNum.length);
+                pos += seqNum.length;
 
-                byte[] hash = this.md5hash.getBytes(UTF_8);
-                System.arraycopy(hash, 0, data, pos, hash.length);
-                pos += hash.length;
+                byte[] md5hash = u.hexStrToBytes(this.md5hash);
+                System.arraycopy(md5hash, 0, data, pos, md5hash.length);
+                pos += md5hash.length;
 
                 data[pos] = (byte) (this.hasNext ? 1 : 0);
                 pos++;
 
-                byte[] shortBytes_ = u.intToBytes(this.data.length);
-                System.arraycopy(shortBytes_, 0, data, pos, shortBytes_.length);
-                pos += shortBytes_.length;
+                byte[] dataLength = u.shortToBytes((short) this.data.length);
+                System.arraycopy(dataLength, 0, data, pos, dataLength.length);
+                pos += dataLength.length;
 
                 System.arraycopy(this.data, 0, data, pos, this.data.length);
                 pos += this.data.length;
@@ -284,24 +327,78 @@ public class Packet {
             }
 
             case ACK -> {
-                byte[] shortBytes = u.shortToBytes(this.sequenceNumber);
-                System.arraycopy(shortBytes, 0, data, pos, shortBytes.length);
-                pos += shortBytes.length;
+                
+                pos = this.serializeAck(data, pos, u);
 
-                byte[] hash = this.md5hash.getBytes(UTF_8);
-                System.arraycopy(hash, 0, data, pos, hash.length);
-                pos += hash.length;
-
-                byte[] timestamp = u.longToBytes(this.timestamp);
-                System.arraycopy(timestamp, 0, data, pos, timestamp.length);
-                pos += timestamp.length;
-
-                Arrays.fill(data, pos, data.length, (byte) 0);
+                byte[] hmac = u.hexStrToBytes(this.hmac);
+                System.arraycopy(hmac, 0, data, pos, hmac.length);
             }
 
             default ->
-                throw new IllegalOpCodeException();
+                throw new IllegalPacketException();
         }
         return new DatagramPacket(data, MAX_PACKET_SIZE, ip, port);
+    }
+
+    private int serializeAck(byte[] data, int pos, Utils u){
+        byte[] seqNum = u.shortToBytes(this.sequenceNumber);
+        System.arraycopy(seqNum, 0, data, pos, seqNum.length);
+        pos += seqNum.length;
+
+        byte[] md5hash = u.hexStrToBytes(this.md5hash);
+        System.arraycopy(md5hash, 0, data, pos, md5hash.length);
+        pos += md5hash.length;
+
+        byte[] timestamp = u.longToBytes(this.timestamp);
+        System.arraycopy(timestamp, 0, data, pos, timestamp.length);
+        pos += timestamp.length;
+
+        Arrays.fill(data, pos, data.length, (byte) 0);
+
+        return pos;
+    }
+
+
+    private int serializeFileMeta(byte[] data, int pos, Utils u){
+        byte[] md5hash = u.hexStrToBytes(this.md5hash);
+        System.arraycopy(md5hash, 0, data, pos, md5hash.length);
+        pos += md5hash.length;
+
+        byte[] filenameLength = u.intToBytes(this.filename.length());
+        System.arraycopy(filenameLength, 0, data, pos, filenameLength.length);
+        pos += filenameLength.length;
+
+        byte[] filename = this.filename.getBytes(UTF_8);
+        System.arraycopy(filename, 0, data, pos, filename.length);
+        pos += filename.length;
+
+        data[pos] = (byte) (this.hasNext ? 1 : 0);
+        pos++;
+
+        Arrays.fill(data, pos, data.length, (byte) 0);
+
+        return pos;
+    }
+
+    /**
+     * Returns a HMAC from the given {@code msg}.
+     *
+     * @param   msg
+     *          The msg to read data from
+     *
+     * @return  The new HMAC calculated.
+     *
+     * @throws  InvalidKeyException
+     *          
+     * @throws NoSuchAlgorithmException
+     *
+     * @throws SignatureException
+     */
+    public static byte[] calculateHMAC(byte[] msg) 
+    throws SignatureException, NoSuchAlgorithmException, InvalidKeyException {
+        SecretKeySpec sk = new SecretKeySpec(KEY.getBytes(), HMAC_SHA1_ALGORITHM);
+        Mac mac = Mac.getInstance(HMAC_SHA1_ALGORITHM);
+        mac.init(sk);
+        return mac.doFinal(msg);    
     }
 }

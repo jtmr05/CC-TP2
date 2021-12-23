@@ -17,9 +17,12 @@ default:
 	@make $(JAR)
 	@mkdir -p $(DIR_A)
 	@mkdir -p $(DIR_B)
-	@echo "bom dia__" > $(DIR_A)/bomdia.txt
-	@echo "hello world" > $(DIR_B)/helloworld.txt
+	@-rm $(DIR_A)/*
+	@-rm $(DIR_B)/*
+	@cp $(SRC_DIR)/utils/ProtocolDescription.txt $(DIR_A)
 	@cp $(JAR) $(TEST_PATH)
+	@echo "hello world" > $(DIR_B)/helloworld.txt
+
 
 $(JAR): $(SRC_FILES)
 	@mvn package

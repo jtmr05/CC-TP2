@@ -4,7 +4,6 @@ import java.io.*;
 import java.net.Socket;
 import java.util.Date;
 
-import packet.Packet;
 import udp.FileTracker;
 import utils.Utils;
 
@@ -64,24 +63,15 @@ public class TCP_Handler implements Runnable {
                         body.append("<html><title>Logs</title><span>");
                         var iter = this.f.logsIter();
                         while(iter.hasNext())
-                            body.append(iter.next());
+                            body.append(iter.next() + "<br>");
 
-                        body.append("<span></html>");
-
-                        break;
-
-                    case "/missing":
-
-                        body.append("<html><title>Missing</title><span>");
-                        for(Packet p : this.f.toSendSet()){
-                            body.append(p.getFilename()+"<br>");
-                        }
                         body.append("<span></html>");
 
                         break;
 
                     default:
                         body.append("Page not Found");
+                        body.append("<span></html>");
                         break;
                 }
 

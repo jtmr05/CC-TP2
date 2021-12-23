@@ -24,8 +24,10 @@ public class UDP_Listener implements Runnable, Closeable {
         this.dir = dir;
         this.inSocket = new DatagramSocket(this.localPort);
         this.tracker = tracker;
-        this.udpSender = new UDP_Sender(this.address, this.peerPort, this.tracker);
+        this.udpSender = new UDP_Sender(this.address, this.peerPort, this.tracker, this.dir);
         (this.senderThread = new Thread(this.udpSender)).start();
+        //this.senderThread = new Thread(this.udpSender);
+        System.out.println("will now send stuff");
     }
 
     @Override
@@ -36,14 +38,18 @@ public class UDP_Listener implements Runnable, Closeable {
         try{
 
             while(true){
+
                 this.inSocket.receive(inPacket);
-
-                Thread handlerThread = new Thread(
-                                       new UDP_Handler(inPacket, this.dir, this.tracker, this.localPort));
-                handlerThread.start();
-
                 this.udpSender.signal(); //it's important that the received packet is treated
-                                         //before signaling the sender
+                
+                System.out.println("i have gift");
+                
+                Thread handlerThread = new Thread(
+                    new UDP_Handler(inPacket, this.dir, this.tracker,
+                    this.peerPort, this.address));
+                    handlerThread.start();
+                    
+                    //before signaling the sender
             }
         }
         catch(IOException e){}
@@ -62,12 +68,3 @@ public class UDP_Listener implements Runnable, Closeable {
         catch(Exception e){}
     }
 }
-
-
-// try {
-//     String s = CompletableFuture.supplyAsync(() -> br.readLine()).get(1, TimeUnit.SECONDS);
-// } catch (TimeoutException e) {
-//     System.out.println("Time out has occurred");
-// } catch (InterruptedException | ExecutionException e) {
-//     // Handle
-// }
