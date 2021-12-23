@@ -50,7 +50,7 @@ public class Utils {
     }
 
     public String readProtocol() throws IOException{
-        InputStream is = getClass().getResourceAsStream("ProtocolDescription.txt"); //check if name is right
+        InputStream is = getClass().getResourceAsStream("ProtocolDescription.txt");
         BufferedReader br = new BufferedReader(new InputStreamReader(is));
         String temp;
         StringBuilder sb = new StringBuilder(br.readLine());
@@ -94,13 +94,5 @@ public class Utils {
                              toString().
                              split("T")[1];
         return ldt;
-    }
-}
-
-class Main{
-    public static void main(String[] args) {
-        Utils u = new Utils();
-        byte[] b = u.hexStrToBytes("0087ff");
-        System.out.println(u.bytesToHexStr(b));
     }
 }

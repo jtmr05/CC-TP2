@@ -11,12 +11,14 @@ public class FileChunkWriter implements Closeable {
     private final Map<Integer, byte[]> map;
     private int offset;
     private final Lock lock;
+    private final long begin;
 
     private FileChunkWriter(File f) throws FileNotFoundException {
         this.writer = new BufferedOutputStream(new FileOutputStream(f));
         this.map = new HashMap<>();
         this.offset = 0;
         this.lock = new ReentrantLock();
+        this.begin = System.currentTimeMillis();
     }
 
     public static FileChunkWriter factory(String filename) throws IOException {
@@ -31,11 +33,9 @@ public class FileChunkWriter implements Closeable {
     public void writeChunk(byte[] data, int off) throws IOException {
 
         this.lock.lock();
-        System.out.println("\t\toffset-> expected: "+this.offset+" got: "+off);
         if(this.offset == off){
             this.writer.write(data);
             this.offset += data.length;
-
 
             while(this.map.containsKey(this.offset)){
                 var tmp = this.map.remove(this.offset);
@@ -52,6 +52,15 @@ public class FileChunkWriter implements Closeable {
 
     public boolean isEmpty(){
         return this.map.isEmpty();
+    }
+
+    public double getTransferTime(){
+        return (double) (System.currentTimeMillis() - this.begin) / 1000; //seconds
+    }
+
+    public double getDebit(){
+        double time = this.getTransferTime();
+        return (double) this.offset / time;
     }
 
     @Override

@@ -20,7 +20,7 @@ default:
 	@-rm $(DIR_A)/*
 	@-rm $(DIR_B)/*
 	@cp $(SRC_DIR)/utils/ProtocolDescription.txt $(DIR_A)
-	@cp $(JAR) $(TEST_PATH)
+	@cp target/FFSyncLocal.jar $(TEST_PATH)
 	@echo "hello world" > $(DIR_B)/helloworld.txt
 
 

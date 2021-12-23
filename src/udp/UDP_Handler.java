@@ -30,9 +30,7 @@ public class UDP_Handler implements Runnable {
 
         Packet p = null;
         try{
-            System.out.println(Thread.currentThread().getName());
             p = Packet.deserialize(this.received);
-            System.out.println(p.getOpcode());
             String key = p.getMD5Hash();
 
             switch(p.getOpcode()){
@@ -41,23 +39,19 @@ public class UDP_Handler implements Runnable {
                     this.tracker.putInRemote(key, p);
                     
                 case DATA_TRANSFER -> {
-                    this.tracker.log("Pacote recebido com numero de sequencia: "+p.getSequenceNumber());
+                    this.tracker.log("Pacote recebido com n&uacute;mero de sequ&ecirc;ncia: "+p.getSequenceNumber());
                     var fcw = this.tracker.getChunkWriter(key);
                     try{
                         short seqNum = p.getSequenceNumber();
-                        if(fcw == null){ //nova file
-                            //System.out.println("\tDENTRO DO IF: "+seqNum);
-                            //System.out.println("-\t>>>>>>>>>>>>>>>>>>"+key);
+                        if(fcw == null){ 
                             String filename = this.tracker.getRemoteFilename(key);
                             if(filename==null) break;
                             String dirPath = this.dir.getAbsolutePath();
-                            String filePath = new StringBuilder(dirPath).append("/").append(filename).toString();
+                            String filePath = dirPath + "/" + filename;
                             fcw = FileChunkWriter.factory(filePath);
                             this.tracker.putChunkWriter(key, fcw);
-                            
                         }
 
-                        System.out.println("---->"+seqNum+"\t"+Thread.currentThread().getName());
                         int off = (seqNum - INIT_SEQ_NUMBER) * DATA_SIZE;
                         
                         fcw.writeChunk(p.getData(), off);
@@ -65,27 +59,31 @@ public class UDP_Handler implements Runnable {
                         this.sendAck(ack);
 
                         if(!p.getHasNext() && fcw.isEmpty()){
-                            this.tracker.removeChunkWriter(key);
-                            this.tracker.log("<b>"+this.tracker.getRemoteFilename(key) + " foi recebido e guardado </b>");
+                            var fcw__ = this.tracker.removeChunkWriter(key);
+                            if(fcw__ != null){
+                                double time = fcw__.getTransferTime();
+                                double debit = fcw__.getDebit();
+                                this.tracker.log("<b>"+this.tracker.getRemoteFilename(key) + 
+                                " foi recebido e guardado em "+time + " segundos a uma taxa de " + debit + " bytes/s</b>");
+                            }
                         }
                     }
-                    catch(IOException e){System.out.println("\nIIIIIOOOOOOO EXCEPTION");}
+                    catch(IOException e){}
                 }
 
                 case ACK -> {
-                    if(p.getSequenceNumber() >= 0){
+                    if(p.getSequenceNumber() >= INIT_SEQ_NUMBER){
                         long timestamp = p.getTimestamp(); 
                         RTT.add(timestamp);
                         this.tracker.ack(key, p.getSequenceNumber(), timestamp);
                     }
                 }
 
-                default -> {System.out.println("DEFAULTTTTTTTTTTTTTTTTTTTTTTTTT");}
+                default -> {}
             }
         }
         catch (IllegalPacketException e){
-            System.out.println("\t\t"+p.getOpcode()+" EXECECAO");
-        } //ignore any other opcode
+        } // ignore any other opcode
     }
 
 
@@ -95,7 +93,6 @@ public class UDP_Handler implements Runnable {
         Utils u = new Utils();
         String ldt = u.getInstant(p.getTimestamp());
         this.tracker.log(ldt + " -> enviando ack " + p.getSequenceNumber());
-        System.out.println("sending ack");
         ds.close();
     }
 }

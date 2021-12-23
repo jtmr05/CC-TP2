@@ -7,49 +7,57 @@ import java.util.Date;
 import udp.FileTracker;
 import utils.Utils;
 
-
-
+/** A {@linkplain Runnable} target which will handle an HTTP request sent to {@linkplain TCP_Listener}. 
+* An instance of this class will send HTML formated text to the underlying {@code Socket}.<p>
+* There are three different requests that are supported:
+* <li>{@code /} - Displays the structure of the FFSync protocol built over UDP.
+* <li>{@code /logs} - Displays the log registry of the FFSync protocol 
+at the moment which it is requested.
+* <li>{@code /files} - Lists all the current files located 
+in the folder which is being synchronized.
+* </ul>
+*/
 public class TCP_Handler implements Runnable {
 
+    /** The socket to send responses to. */
     private final Socket socket;
+    /** The directory's path used to retrieve its files. */
     private final File path;
-    private final FileTracker f;
+    /** The protocol's {@code FileTracker} instance shared across multiple classes. */
+    private final FileTracker tracker;
 
-    public TCP_Handler(Socket s, File path, FileTracker f){
-        this.socket = s;
+    public TCP_Handler(Socket socket, File path, FileTracker tracker){
+        this.socket = socket;
         this.path = path;
-        this.f = f;
-    }
+        this.tracker = tracker;
+    } 
 
     @Override
     public void run() {
         try{
             BufferedReader in = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
             PrintWriter out = new PrintWriter(new OutputStreamWriter(this.socket.getOutputStream()));
-            //GET /files HTTP/1.1
-            //GET / HTTP/1.1
 
             Utils u = new Utils();
             String s;
             StringBuilder body = new StringBuilder();
             while((s = in.readLine()) != null && !s.isEmpty()){
-                String[] argumentos = s.split(" ");
-                System.out.println("\n"+"\n"+argumentos.toString()+"\n"+"\n");
+                String[] args = s.split(" ");
 
-                switch (argumentos[1]){
+                switch (args[1]){
                     case "/":
 
-                        String protocolDescription = u.readProtocol();///home/diogobarbosa/3º ano/CC/CC-TP2/src/utils/ProtocolDescription.txt
+                        String protocolDescription = u.readProtocol();
                         body.append("<html><title>FFSync</title><span>");
                         body.append(protocolDescription);
                         body.append("<span></html>");
 
                         break;
 
-                    case "/files"://falta ver se é diretoria em vez de file/função auxiliar/usar o tipo file
+                    case "/files":
 
                         body.append("<html><title>Files</title><span>");
-                        var listOfFiles = this.path.listFiles();  //when size == 0, this would throw an exception
+                        var listOfFiles = this.path.listFiles();//when size == 0, this would throw an exception
                         int size = listOfFiles.length;
                         for(int i = 0; i < size; i++)
                             body.append(listOfFiles[i] + "<br>");
@@ -61,7 +69,8 @@ public class TCP_Handler implements Runnable {
                     case "/logs":
 
                         body.append("<html><title>Logs</title><span>");
-                        var iter = this.f.logsIter();
+                        
+                        var iter = this.tracker.logsIter();
                         while(iter.hasNext())
                             body.append(iter.next() + "<br>");
 
@@ -84,7 +93,6 @@ public class TCP_Handler implements Runnable {
                        append("Connection: closed\n\n\n");
                 out.write(header.append(body).toString());
                 out.flush();
-                System.out.println(s);
             }
             this.socket.close();
         }

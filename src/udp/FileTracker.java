@@ -17,28 +17,54 @@ import packet.*;
 import utils.FileChunkWriter;
 import utils.Utils;
 
-public class FileTracker implements Closeable {
+/** This class is shared across multiple other project classes. It keeps track of regular files
+* in the local and peer directories, sent chunks of data (and which of those were acknowledged), 
+* received chunks and logs used for the HTTP requests.
+*/
+public class FileTracker {
 
-    private final Map<String, Packet> local;    //what files I have
-    private final Map<String, Packet> remote;   //what files the other guy has
-    private final Map<String, AckTracker> acks; //keep track of what was sent successfully
+    /** The mapping of the local directory's contents represented as a {@code FILE_META} {@code Packet}. */
+    private final Map<String, Packet> local;
+    /** The mapping of the peer directory's contents represented as a {@code FILE_META} {@code Packet}. */
+    private final Map<String, Packet> remote;
+    /** The mapping of {@linkplain AckTracker}s to keep track of what chunks were sent and acknowledged.*/
+    private final Map<String, AckTracker> acks;
+    /** The mapping of {@linkplain FileChunkWriter}s to write received
+    chunks to according to the {@code Packet}'s md5hash.*/
     private final Map<String, FileChunkWriter> receivedChunks;
+    /** The registry logs used for HTTP responses. */
     private final List<String> logs;
 
+    /** The {@code Lock} associated to {@linkplain FileTracker#local}.  */
     private final Lock localLock;
+    /** The {@code Lock} associated to {@linkplain FileTracker#remote}.  */
     private final Lock remoteLock;
-    private final Lock chunkLock;
-    private final Condition remoteCond; //makes a thread wait when there is still metadata to be received
+    /** The {@code Lock} associated to {@linkplain FileTracker#acks}.  */
     private final Lock ackLock;
+    /** The {@code Lock} associated to {@linkplain FileTracker#receivedChunks}.  */
+    private final Lock chunkLock;
+
+    private final Lock logLock;
+
+    /** The {@code Condition} associated to {@linkplain FileTracker#remoteLock}. 
+    * A thread will suspend its execution upon this object when there is still metadata to be 
+    * sent by the peer directory (as according to {@linkplain FileTracker#hasNext}).*/
+    private final Condition remoteCond;
+    /** The {@code Condition} associated to {@linkplain FileTracker#ackLock}. 
+    * A thread will suspend its execution upon this object when there are still to be received. */
     private final Condition ackCond;
 
-
+    /** Indicates if there is still metadata to be received. */
     private boolean hasNext;
 
+    /** The directory {@code File} object. */
     private final File dir;
-    private final Thread t;
 
-    /** monitor the directory for any changes */
+    /** {@linkplain Runnable} target that will monitor a directory for its contents, invoking the outter object's
+     * {@linkplain FileTracker#populate} method.
+     * The folder is scanned for contents each {@linkplain RTT#MILLIS_OF_SLEEP}.
+     * 
+     */
     private class Monitor implements Runnable {
 
         private Monitor(){}
@@ -50,9 +76,8 @@ public class FileTracker implements Closeable {
                 int i = 0;
                 while(!Thread.interrupted()){
                     if(i == 0){
-                        System.out.println("populating...");
+                        System.out.println("Populating...");
                         FileTracker.this.populate();
-                        System.out.println(local);
                     }
                     i += stride;
                     if(i >= millis)
@@ -64,27 +89,40 @@ public class FileTracker implements Closeable {
         }
     }
 
+    /** Maps the sequence numbers to the respective packets and indicates the next expected sequence number
+    * to be acknowledged. */
     private class AckTracker {
 
+        /** The mapping of sequence numbers to sent packets. */
         private final Map<Short, Packet> sent;
+        /** Next expected sequence number. */
         private short currentSequenceNumber;
-        private short biggest;
 
         protected AckTracker(){
             this.sent = new HashMap<>();
-            this.currentSequenceNumber = this.biggest = INIT_SEQ_NUMBER;
+            this.currentSequenceNumber = INIT_SEQ_NUMBER;
         }
     }
 
+    /**
+     * Acknowledge a packet from this object's mapping of {@code AckTracker}s. Its {@code currentSequenceNumber}
+     * is updated accordingly.
+     *  @param id
+            The file's unique identifier
+        @param seqNum
+            The sequence number to be acknowledged.
+        @param timestamp
+            The {@code Packet}'s timestamp used for logging purposes.
+     */
     protected void ack(String id, short seqNum, long timestamp){
         this.ackLock.lock();
         AckTracker at = this.acks.get(id);
         Utils u = new Utils();
         String ldt = u.getInstant(timestamp);
         this.ackCond.signalAll();
-        
+
         this.log(ldt + " -> recebendo ack " + seqNum);
-        
+
         if(seqNum == at.currentSequenceNumber){
             at.sent.remove(seqNum);
             at.currentSequenceNumber++;
@@ -93,11 +131,20 @@ public class FileTracker implements Closeable {
         this.ackLock.unlock();
     }
 
+     /**
+     * Add a packet to this object's mapping of {@code AckTracker}s. Its {@code currentSequenceNumber}
+     * is updated accordingly.
+     *  @param id
+            The file's unique identifier
+        @param seqNum
+            The sequence number to be acknowledged.
+        @param timestamp
+            The {@code Packet}'s timestamp used for logging purposes.
+     */
     protected void addToSent(String id, short seqNum, Packet p){
         this.ackLock.lock();
         AckTracker at = this.acks.get(id);
         at.sent.put(seqNum, p);
-        at.biggest = (short) Math.max(at.biggest, seqNum);
         this.ackLock.unlock();
     }
 
@@ -137,13 +184,13 @@ public class FileTracker implements Closeable {
         this.ackLock = new ReentrantLock();
         this.chunkLock = new ReentrantLock();
         this.ackCond = this.ackLock.newCondition();
-
+        this.logLock = new ReentrantLock();
         this.hasNext = false;
 
-        this.logs = new ArrayList<String>();
+        this.logs = new ArrayList<>();
 
         this.dir = dir;
-        (this.t = new Thread(new Monitor())).start();
+        new Thread(new Monitor()).start();
     }
 
     protected FileChunkWriter getChunkWriter(String id){
@@ -169,16 +216,20 @@ public class FileTracker implements Closeable {
     }
 
     public void log(String msg){
+        this.logLock.lock();
         this.logs.add(msg);
+        this.logLock.unlock();
     }
 
     public Iterator<String> logsIter(){
-        return this.logs.iterator();
+        this.logLock.lock();
+        List<String> l = new ArrayList<>(this.logs);
+        this.logLock.unlock();
+        return l.iterator();
     }
 
     public String getRemoteFilename(String id){
         this.remoteLock.lock();
-        //System.out.println("{{{{{{{{"+this.remote.keySet());
         Packet p = this.remote.get(id);
         String filename;
         if(p!=null)
@@ -195,7 +246,6 @@ public class FileTracker implements Closeable {
                                       filter(File::isFile).
                                       collect(Collectors.toList());
             final int size = files.size();
-            System.out.println("SIZESIZESIZE "+size);
 
 
             try{
@@ -256,7 +306,6 @@ public class FileTracker implements Closeable {
             this.remoteCond.signalAll();
 
         boolean b = this.remote.put(key, value) != null;
-        System.out.println("CHAVES: " + this.remote.keySet());
         this.remoteLock.unlock();
 
         return b;
@@ -267,27 +316,22 @@ public class FileTracker implements Closeable {
      * @return The set of metadata packets
      */
     public Set<Packet> toSendSet(){
-        
-        //System.out.println("AINDA MAIS CHAVES: "+this.remote.keySet());
+
         this.localLock.lock();
         var localSet = this.local.entrySet();
         this.remoteLock.lock();
         this.localLock.unlock();
-        
+
         try{
-            
+
             while(this.hasNext)
                 this.remoteCond.await();
-            
-            //System.out.println("ANTES->"+this.remote.keySet());
+
 
             var ret = localSet.stream().
                                filter(e -> !this.remote.containsKey(e.getKey())).
                                map(Entry::getValue).
                                collect(Collectors.toCollection(HashSet::new));
-
-            //System.out.println("AQUI VAI: "+this.local.keySet());
-            //System.out.println(this.remote.keySet());
 
             this.ackLock.lock();
             this.remoteLock.unlock();
@@ -313,17 +357,11 @@ public class FileTracker implements Closeable {
         this.localLock.unlock();
 
         var list = localSet.stream().
-                            //filter(e -> !this.remote.containsKey(e.getKey())).
                             map(Entry::getValue).
                             collect(Collectors.toList());
 
         this.remoteLock.unlock();
         list.sort((p1, p2) -> Boolean.compare(p2.getHasNext(), p1.getHasNext())); //false comes last
         return list;
-    }
-
-    @Override
-    public void close(){
-        this.t.interrupt();
     }
 }

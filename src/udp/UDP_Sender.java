@@ -30,7 +30,7 @@ public class UDP_Sender implements Runnable, Closeable {
         this.tracker = tracker;
         this.dir = dir;
         this.isAlive = isAlive;
-        this.lock = new ReentrantLock();        
+        this.lock = new ReentrantLock();
     }
 
     protected UDP_Sender(InetAddress address, int peerPort, FileTracker tracker, File dir) throws SocketException {
@@ -59,26 +59,30 @@ public class UDP_Sender implements Runnable, Closeable {
 
     private void sendMetadata() throws InterruptedException{
         List<Packet> toSendMetadata = this.tracker.toSendMetadataList();
-        int size = toSendMetadata.size();
+
+        if(toSendMetadata.isEmpty())
+            try{
+                toSendMetadata.add(new Packet(ACK, (short) (INIT_SEQ_NUMBER - 1), 
+                                              "abcdef0123456789abcdef0123456789"));
+            }
+            catch(IllegalPacketException e){}
         
-        if(size == 0)
-        try{
-            toSendMetadata.add(new Packet(ACK, (short) -1, "abcdef0123456789abcdef0123456789"));
-            size++;
-        } 
-        catch(IllegalPacketException e){}
-        
-        System.out.println("about to start to send metadata ("+size+" item(s))");
+        final int size = toSendMetadata.size();
+
         try{
             int i = 0;
             while(i < size){
+                
                 Packet p = toSendMetadata.get(i);
-                System.out.println("\t"+p.getMD5Hash());
-                if(i==(size-1)) Thread.sleep(2000);
-                else Thread.sleep(100);
+                if(i == (size - 1)) 
+                    Thread.sleep(2000);
+                else 
+                    Thread.sleep(100);
+                
                 try{
-                    
                     this.outSocket.send(p.serialize(this.address, this.peerPort));
+                    if(p.getFilename()==null) this.tracker.log("<b>Enviando sinal de pasta vazia </b>");
+                    else this.tracker.log("<b>Enviando metadados do ficheiro "+p.getFilename()+"</b>");
                 }
                 catch(IllegalPacketException e){
                     continue;
@@ -97,7 +101,6 @@ public class UDP_Sender implements Runnable, Closeable {
     private void sendData(){
         List<Packet> toSendData = new LinkedList<>(this.tracker.toSendSet());
         final int size = toSendData.size();
-        System.out.println("about to start to send data ("+size+" item(s))");
 
         try{
             Thread.sleep(2000);
@@ -108,18 +111,16 @@ public class UDP_Sender implements Runnable, Closeable {
                 String filename = p.getFilename(), hash = p.getMD5Hash();
                 FileChunkReader fcr = new FileChunkReader(filename, this.dir);
                 int numOfTries = 0;
-                System.out.println("\t"+hash);
 
                 while((!fcr.isFinished()) || (!this.tracker.isEmpty(hash))){
                     this.timeout();
                     short curr = this.tracker.getCurrentSequenceNumber(hash);
-                    System.out.println("\t\texpected: "+seqNum+" got: "+curr);
 
                     if(seqNum == curr)
                         numOfTries = 0;
                     else
                         seqNum = curr;
-                    
+
                     short temp = seqNum;
                     seqNum = this.send(seqNum, hash, fcr);
                     if(seqNum == temp)
@@ -146,8 +147,7 @@ public class UDP_Sender implements Runnable, Closeable {
             var dp = this.nextDatagramPacket(hash, seqNum, fcr);
             if(dp != null){
                 this.outSocket.send(dp);
-                this.tracker.log("Pacote enviado com numero de sequencia: "+seqNum);
-                System.out.println("sending "+hash+" packet with "+seqNum);
+                this.tracker.log("Pacote enviado com n&uacute;mero de sequ&ecirc;ncia: "+seqNum);
                 seqNum++;
             }
         }
@@ -160,7 +160,6 @@ public class UDP_Sender implements Runnable, Closeable {
         if(p == null){
             byte[] data = fcr.nextChunk();
             if(data != null){
-                System.out.println("\t\tsize is "+data.length);
                 p = new Packet(DATA_TRANSFER, seqNum, hash, !fcr.isFinished(), data);
                 this.tracker.addToSent(hash, seqNum, p);
             }
@@ -189,12 +188,11 @@ public class UDP_Sender implements Runnable, Closeable {
     }
 
     private void timeout(){
-        for(System.out.println("zzzz...");!this.isAlive;)
+        while(!this.isAlive)
             try{
                 Thread.sleep(10);
             }
             catch(InterruptedException e){}
-        System.out.println("woke up wwoooooooOOOOO");
     }
 
     @Override

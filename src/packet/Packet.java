@@ -14,23 +14,37 @@ import javax.crypto.spec.SecretKeySpec;
 import static packet.Consts.*;
 import utils.*;
 
+/** This class acts as an abstration for {@code DatagramPacket} according to this protocol's 
+* specification for ease of use. It provides necessary methods to convert from and to {@code DatagramPacket} in
+* order to send or receive this class's instance. 
+* <p> 
+* Three distinct opcodes are support as defined in {@linkplain Consts}:<ul>
+* <li>{@code FILE_META} - This object refers to a transfer of a file's metadata. As of now, 
+            it only includes its filename. These metadata are used to compute a file's unique identifier.
+* <li>{@code DATA_TRANSFER} - This object refers to a transfer of a chunk of file data. At most, 
+            the chunk is of size {@linkplain Consts#DATA_SIZE}. It is
+            identified by a sequence number and the file's unique identifier.
+* <li>{@code ACK} - This object refers to an acknowledgment. Each ack is non cumulative and is identified
+            in the same way as the corresponding {@code DATA_TRANSFER} packet. 
+* </ul>
+*/
 public class Packet {
 
-    /** The operation code as defined in {@linkplain Consts} */
+    /** The operation code as defined in {@linkplain Consts}. */
     private final byte opcode;
-    /** md5 hash produced from the file's metadata (filename) */
+    /** The md5 hash produced from the file's metadata (filename). */
     private final String md5hash;
-    /** Epoch time of the files creation date */
+    /** Indicates if there is further data to be received. */
     private final boolean hasNext;
-    /** The chunk sequence number*/
+    /** The chunk's sequence number.*/
     private final short sequenceNumber;
-    /** The filename */
+    /** The filename. */
     private final String filename;
-    /** The raw data being sent/received*/
+    /** The raw data being sent/received.*/
     private final byte[] data;
-    /** Timestamp used to calculate RTT */
+    /** Timestamp used to estimate RTT.*/
     private final long timestamp;
-    /** HMAC */
+    /** HMAC used to guarantee the protocol's integrity. */
     private final String hmac;
 
     //FILE_META
@@ -52,7 +66,6 @@ public class Packet {
             this.hmac = u.bytesToHexStr(calculateHMAC(data));
         }
         catch(NoSuchAlgorithmException | SignatureException | InvalidKeyException e){
-            System.out.println("falhou aqui nestas 3 javardas");
             throw new IllegalPacketException();
         }
     }
@@ -99,7 +112,6 @@ public class Packet {
             this.hmac = u.bytesToHexStr(calculateHMAC(data));
         }
         catch(NoSuchAlgorithmException | SignatureException | InvalidKeyException e){
-            System.out.println("falhou aqui nestas 3 javardas");
             throw new IllegalPacketException();
         }
     }
@@ -154,12 +166,12 @@ public class Packet {
     }
 
     /**
-     * Returns a new packet from the given {@code dp}.
+     * Returns a new {@code Packet} instance from the given {@code dp}.
      *
      * @param   dp
-     *          The DatagramPacket to read data from
+     *          The {@code DatagramPacket} to read data from
      *
-     * @return  The new Packet instance
+     * @return  The new {@code Packet} instance
      *
      * @throws  IllegalPacketException
      *          If the read op code is unknown
@@ -192,16 +204,12 @@ public class Packet {
                 System.arraycopy(data, pos, hmac, 0, hmac.length);
                 Arrays.fill(data, pos, data.length, (byte) 0);
 
-                System.out.println(FILE_META +" "+ u.bytesToHexStr(md5hash)+" "+ new String(filename, UTF_8)+" "+ 
-                               hasNext+" "+ u.bytesToHexStr(hmac));
                 p = new Packet(FILE_META, u.bytesToHexStr(md5hash), new String(filename, UTF_8), 
                                hasNext, u.bytesToHexStr(hmac));
                 
 
                 try{
                     String expectedHmac = u.bytesToHexStr(calculateHMAC(data));
-                    System.out.println("expected: "+expectedHmac);
-                    System.out.println("got: " +p.getHmac());
 
                     if(!p.getHmac().equals(expectedHmac))                        
                         throw new IllegalPacketException();
@@ -273,14 +281,14 @@ public class Packet {
     }
 
     /**
-     * Produces a new datagram packet from this object.
+     * Produces a new {@code DatagramPacket} from this object.
      *
      * @param   ip
      *          The destination address
      * @param   port
      *          The destination port number
      *
-     * @return  The new datagram packet
+     * @return  The new {@code DatagramPacket}
      *
      * @throws  IllegalPacketException
      *          If this object's {@code opcode} is unknown
@@ -339,6 +347,20 @@ public class Packet {
         return new DatagramPacket(data, MAX_PACKET_SIZE, ip, port);
     }
 
+    /** Serializes this object, treating its opcode as {@code ACK}. It will write to the given
+     * {@code data} array as much as necessary, filling with {@code 0}s the remaining positions of the array.
+     *  @param data
+                The byte array to write to.
+        @param pos 
+                The beginning position to start writing to.
+        @param u
+                A {@code Utils} instance, providing necessary methods for to-byte-array conversions.
+
+        @return
+                The new array position to write further data to without overwriting 
+                data written by this method. It also indicates the starting position of the
+                zero fill.
+    */
     private int serializeAck(byte[] data, int pos, Utils u){
         byte[] seqNum = u.shortToBytes(this.sequenceNumber);
         System.arraycopy(seqNum, 0, data, pos, seqNum.length);
@@ -358,6 +380,20 @@ public class Packet {
     }
 
 
+    /** Serializes this object, treating its opcode as {@code FILE_META}. It will write to the given
+     * {@code data} array as much as necessary, filling with {@code 0}s the remaining positions of the array.
+     *  @param data
+                The byte array to write to.
+        @param pos 
+                The beginning position to start writing to.
+        @param u
+                A {@code Utils} instance, providing necessary methods for to-byte-array conversions.
+
+        @return
+                The new array position to write further data to without overwriting 
+                data written by this method. It also indicates the starting point of the
+                zero fill.
+    */
     private int serializeFileMeta(byte[] data, int pos, Utils u){
         byte[] md5hash = u.hexStrToBytes(this.md5hash);
         System.arraycopy(md5hash, 0, data, pos, md5hash.length);
@@ -385,7 +421,7 @@ public class Packet {
      * @param   msg
      *          The msg to read data from
      *
-     * @return  The new HMAC calculated.
+     * @return  The new HMAC calculated
      *
      * @throws  InvalidKeyException
      *          

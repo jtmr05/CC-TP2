@@ -32,7 +32,6 @@ public class FileChunkReader implements Closeable {
                     }
                     else
                         data = buffer;
-                    System.out.println("\there's a chunk :3 with size "+data.length);
                 }
                 else
                     data = null;
@@ -57,31 +56,3 @@ public class FileChunkReader implements Closeable {
         catch(IOException e){}
     }
 }
-
-/**
- *     public byte[] indexedChunk(int off){
-
-
-        byte[] data, buffer = new byte[DATA_SIZE];
-        try{
-            this.reader.seek(off);
-            final int bread = this.reader.read(buffer, 0, buffer.length);
-
-            if(bread != -1){
-                if(bread < DATA_SIZE){
-                    data = new byte[bread];
-                    System.arraycopy(buffer, 0, data, 0, bread);
-                }
-                else
-                    data = buffer;
-            }
-            else
-                data = null;
-        }
-        catch(IOException e){
-            data = null;
-        }
-        return data;
-    }
-
- */
