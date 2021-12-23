@@ -13,16 +13,5 @@ SRC_FILES := $(shell find $(SRC_DIR) -name *.java) $(shell find $(SRC_DIR) -name
 jar:
 	@make $(JAR)
 
-default:
-	@make $(JAR)
-	@mkdir -p $(DIR_A)
-	@mkdir -p $(DIR_B)
-	@-rm $(DIR_A)/*
-	@-rm $(DIR_B)/*
-	@cp $(SRC_DIR)/utils/ProtocolDescription.txt $(DIR_A)
-	@cp target/FFSyncLocal.jar $(TEST_PATH)
-	@echo "hello world" > $(DIR_B)/helloworld.txt
-
-
 $(JAR): $(SRC_FILES)
 	@mvn package
