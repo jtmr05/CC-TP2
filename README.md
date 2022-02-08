@@ -1,4 +1,4 @@
-# CC-TP2
+# CC-TPs
 Trabalhos práticos no âmbito da UC de Comunicações por Computadores
 
 Autores:
